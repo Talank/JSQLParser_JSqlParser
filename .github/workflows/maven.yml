@@ -29,4 +29,5 @@ jobs:
           distribution: 'temurin'
           cache: maven
       - name: Build with Maven
+        working-directory: projects/JSQLParser_JSqlParser
         run: mvn -B package --file pom.xml -DdisableXmlReport=true
