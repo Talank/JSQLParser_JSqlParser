@@ -11,6 +11,10 @@ package net.sf.jsqlparser.util.validation.validator;
 
 import net.sf.jsqlparser.parser.feature.Feature;
 import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.insert.OracleMultiInsertBranch;
+import net.sf.jsqlparser.statement.insert.OracleMultiInsertClause;
+import net.sf.jsqlparser.statement.select.Values;
+import net.sf.jsqlparser.statement.update.UpdateSet;
 import net.sf.jsqlparser.util.validation.ValidationCapability;
 
 /**
@@ -23,44 +27,76 @@ public class InsertValidator extends AbstractValidator<Insert> {
     public void validate(Insert insert) {
         for (ValidationCapability c : getCapabilities()) {
             validateFeature(c, Feature.insert);
-            validateOptionalFeature(c, insert.getItemsList(), Feature.insertValues);
-            validateOptionalFeature(c, insert.getModifierPriority(), Feature.insertModifierPriority);
+
+            if (insert.getSelect() instanceof Values) {
+                validateOptionalFeature(c, insert.getSelect().as(Values.class),
+                        Feature.insertValues);
+            }
+
+            validateOptionalFeature(c, insert.getModifierPriority(),
+                    Feature.insertModifierPriority);
             validateFeature(c, insert.isModifierIgnore(), Feature.insertModifierIgnore);
             validateOptionalFeature(c, insert.getSelect(), Feature.insertFromSelect);
             validateFeature(c, insert.isUseSet(), Feature.insertUseSet);
             validateFeature(c, insert.isUseDuplicate(), Feature.insertUseDuplicateKeyUpdate);
-            validateOptionalFeature(c, insert.getReturningExpressionList(), Feature.insertReturningExpressionList);
+            validateOptionalFeature(c, insert.getReturningClause(),
+                    Feature.insertReturningExpressionList);
         }
 
-        validateOptionalFromItem(insert.getTable());
-        validateOptionalExpressions(insert.getColumns());
-        validateOptionalItemsList(insert.getItemsList());
-
-        if (insert.getSelect() != null) {
-            insert.getSelect().accept(getValidator(StatementValidator.class));
+        if (insert.isOracleMultiInsert() && insert.getOracleMultiInsertBranches() != null) {
+            ExpressionValidator v = getValidator(ExpressionValidator.class);
+            for (OracleMultiInsertBranch branch : insert.getOracleMultiInsertBranches()) {
+                if (branch.getWhenExpression() != null) {
+                    branch.getWhenExpression().accept(v, null);
+                }
+                if (branch.getClauses() == null) {
+                    continue;
+                }
+                for (OracleMultiInsertClause clause : branch.getClauses()) {
+                    validateOptionalFromItem(clause.getTable());
+                    validateOptionalExpressions(clause.getColumns());
+                    if (clause.getSelect() instanceof Values) {
+                        clause.getSelect().accept(getValidator(StatementValidator.class), null);
+                        validateOptionalExpressions(
+                                clause.getSelect().as(Values.class).getExpressions());
+                    }
+                }
+            }
+        } else {
+            validateOptionalFromItem(insert.getTable());
+            validateOptionalExpressions(insert.getColumns());
         }
 
-        if (insert.isUseSet()) {
+        if (insert.getSelect() instanceof Values) {
+            insert.getSelect().accept(getValidator(StatementValidator.class), null);
+            validateOptionalExpressions(insert.getValues().getExpressions());
+        }
+
+        if (insert.getSetUpdateSets() != null) {
             ExpressionValidator v = getValidator(ExpressionValidator.class);
             // TODO is this useful?
             // validateModelCondition (insert.getSetColumns().size() !=
             // insert.getSetExpressionList().size(), "model-error");
-            insert.getSetColumns().forEach(c -> c.accept(v));
-            insert.getSetExpressionList().forEach(c -> c.accept(v));
+            for (UpdateSet updateSet : insert.getSetUpdateSets()) {
+                updateSet.getColumns().forEach(c -> c.accept(v, null));
+                updateSet.getValues().forEach(c -> c.accept(v, null));
+            }
         }
 
-        if (insert.isUseDuplicate()) {
+        if (insert.getDuplicateUpdateSets() != null) {
             ExpressionValidator v = getValidator(ExpressionValidator.class);
             // TODO is this useful?
-            // validateModelCondition (insert.getDuplicateUpdateColumns().size() !=
-            // insert.getDuplicateUpdateExpressionList().size(), "model-error");
-            insert.getDuplicateUpdateColumns().forEach(c -> c.accept(v));
-            insert.getDuplicateUpdateExpressionList().forEach(c -> c.accept(v));
+            // validateModelCondition (insert.getSetColumns().size() !=
+            // insert.getSetExpressionList().size(), "model-error");
+            for (UpdateSet updateSet : insert.getDuplicateUpdateSets()) {
+                updateSet.getColumns().forEach(c -> c.accept(v, null));
+                updateSet.getValues().forEach(c -> c.accept(v, null));
+            }
         }
 
-        if (isNotEmpty(insert.getReturningExpressionList())) {
+        if (insert.getReturningClause() != null) {
             SelectValidator v = getValidator(SelectValidator.class);
-            insert.getReturningExpressionList().forEach(c -> c .accept(v));
+            insert.getReturningClause().forEach(c -> c.accept(v, null));
         }
     }
 

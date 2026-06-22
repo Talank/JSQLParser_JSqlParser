@@ -42,14 +42,25 @@ public class DropTest {
         assertEquals("myindex", parsed.getName().getFullyQualifiedName());
         assertEquals("CASCADE", parsed.getParameters().get(0));
         assertEquals(statement, "" + parsed);
-        Drop created = new Drop().withType("INDEX").withName(new Table("myindex")).addParameters("CASCADE");
+        Drop created = new Drop().withType("INDEX").withName(new Table("myindex"))
+                .addParameters("CASCADE");
         assertDeparse(created, statement);
         assertEqualsObjectTree(parsed, created);
     }
-    
+
     @Test
     public void testDropIndexOnTable() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("DROP INDEX idx ON abc");
+    }
+
+    @Test
+    public void testDropIndexOnQualifiedTable() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP INDEX idx ON qual.tbl");
+    }
+
+    @Test
+    public void testDropIndexOnDoubleQualifiedTable() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("DROP INDEX idx ON dbl.qual.tbl");
     }
 
     @Test
@@ -63,7 +74,8 @@ public class DropTest {
     public void testDropIfExists() throws JSQLParserException {
         String statement = "DROP TABLE IF EXISTS my_table";
         Statement parsed = assertSqlCanBeParsedAndDeparsed(statement);
-        Drop created = new Drop().withType("TABLE").withIfExists(true).withName(new Table("my_table"));
+        Drop created =
+                new Drop().withType("TABLE").withIfExists(true).withName(new Table("my_table"));
         assertDeparse(created, statement);
         assertEqualsObjectTree(parsed, created);
     }
@@ -72,7 +84,8 @@ public class DropTest {
     public void testDropRestrictIssue510() throws JSQLParserException {
         String statement = "DROP TABLE TABLE2 RESTRICT";
         Statement parsed = assertSqlCanBeParsedAndDeparsed(statement);
-        Drop created = new Drop().withType("TABLE").withName(new Table("TABLE2")).addParameters(asList("RESTRICT"));
+        Drop created = new Drop().withType("TABLE").withName(new Table("TABLE2"))
+                .addParameters(asList("RESTRICT"));
         assertDeparse(created, statement);
         assertEqualsObjectTree(parsed, created);
     }
@@ -95,6 +108,7 @@ public class DropTest {
     @Test
     public void testDropSchemaIssue855() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("DROP SCHEMA myschema");
+        assertSqlCanBeParsedAndDeparsed("DROP SCHEMA unnamed.myschema");
     }
 
     @Test
@@ -104,7 +118,7 @@ public class DropTest {
 
     @Test
     public void testOracleMultiColumnDrop() throws JSQLParserException {
-        //assertSqlCanBeParsedAndDeparsed("ALTER TABLE foo DROP (bar, baz)");
+        // assertSqlCanBeParsedAndDeparsed("ALTER TABLE foo DROP (bar, baz)");
         assertSqlCanBeParsedAndDeparsed("ALTER TABLE foo DROP (bar, baz) CASCADE");
     }
 
@@ -135,7 +149,7 @@ public class DropTest {
 
     @Test
     void dropTemporaryTableTestIssue1712() throws JSQLParserException {
-        String sqlStr="drop temporary table if exists tmp_MwYT8N0z";
+        String sqlStr = "drop temporary table if exists tmp_MwYT8N0z";
         assertSqlCanBeParsedAndDeparsed(sqlStr, true);
     }
 }

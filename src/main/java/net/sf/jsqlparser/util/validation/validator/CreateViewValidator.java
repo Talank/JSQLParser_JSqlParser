@@ -14,6 +14,7 @@ import net.sf.jsqlparser.statement.create.view.CreateView;
 import net.sf.jsqlparser.statement.create.view.ForceOption;
 import net.sf.jsqlparser.statement.create.view.TemporaryOption;
 import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectVisitor;
 import net.sf.jsqlparser.util.validation.ValidationCapability;
 import net.sf.jsqlparser.util.validation.metadata.NamedObject;
 
@@ -33,10 +34,12 @@ public class CreateViewValidator extends AbstractValidator<CreateView> {
                     Feature.createViewTemporary);
             validateFeature(c, createView.isMaterialized(), Feature.createViewMaterialized);
             validateName(c, NamedObject.view, createView.getView().getFullyQualifiedName(), false);
+            validateFeature(c, createView.getViewCommentOptions() != null,
+                    Feature.createViewWithComment);
         }
         SelectValidator v = getValidator(SelectValidator.class);
         Select select = createView.getSelect();
-        select.accept(v);
+        select.accept((SelectVisitor<Void>) v, null);
     }
 
 }

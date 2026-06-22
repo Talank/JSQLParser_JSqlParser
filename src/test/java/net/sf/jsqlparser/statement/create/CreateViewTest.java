@@ -9,8 +9,13 @@
  */
 package net.sf.jsqlparser.statement.create;
 
-import java.io.StringReader;
+import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.StringReader;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserManager;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
@@ -20,14 +25,7 @@ import net.sf.jsqlparser.statement.create.view.AutoRefreshOption;
 import net.sf.jsqlparser.statement.create.view.CreateView;
 import net.sf.jsqlparser.statement.select.ParenthesedSelect;
 import net.sf.jsqlparser.statement.select.PlainSelect;
-import static net.sf.jsqlparser.test.TestUtils.*;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
 
 public class CreateViewTest {
@@ -122,6 +120,16 @@ public class CreateViewTest {
     }
 
     @Test
+    public void testCreateSecureView() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("CREATE SECURE VIEW myview AS SELECT * FROM mytable");
+    }
+
+    @Test
+    public void testCreateVolatileView() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed("CREATE VOLATILE VIEW myview AS SELECT * FROM mytable");
+    }
+
+    @Test
     public void testCreateTemporaryViewIssue604() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("CREATE TEMPORARY VIEW myview AS SELECT * FROM mytable");
     }
@@ -172,7 +180,7 @@ public class CreateViewTest {
 
         assertThatThrownBy(throwingCallable).isInstanceOf(JSQLParserException.class)
                 .hasRootCauseInstanceOf(ParseException.class).rootCause()
-                .hasMessageStartingWith("Encountered unexpected token");
+                .hasMessageStartingWith("Encountered: <K_AUTO> / \"AUTO\"");
     }
 
     @Test
@@ -183,7 +191,7 @@ public class CreateViewTest {
 
         assertThatThrownBy(throwingCallable).isInstanceOf(JSQLParserException.class)
                 .hasRootCauseInstanceOf(ParseException.class).rootCause()
-                .hasMessageStartingWith("Encountered unexpected token");
+                .hasMessageStartingWith("Encountered: <K_REFRESH> / \"REFRESH\"");
     }
 
     @Test
@@ -194,7 +202,7 @@ public class CreateViewTest {
 
         assertThatThrownBy(throwingCallable).isInstanceOf(JSQLParserException.class)
                 .hasRootCauseInstanceOf(ParseException.class).rootCause()
-                .hasMessageStartingWith("Encountered unexpected token");
+                .hasMessageStartingWith("Encountered: <K_AUTO> / \"AUTO\"");
     }
 
     @Test
@@ -210,6 +218,35 @@ public class CreateViewTest {
         CreateView createView = (CreateView) assertSqlCanBeParsedAndDeparsed(stmt);
         assertTrue(createView.isMaterialized());
         assertTrue(createView.isIfNotExists());
+    }
+
+    @Test
+    public void testCreateViewWithColumnComment() throws JSQLParserException {
+        String stmt =
+                "CREATE VIEW v14(c1 COMMENT 'comment1', c2 COMMENT 'comment2') AS SELECT c1, C2 FROM t1 WITH READ ONLY";
+        assertSqlCanBeParsedAndDeparsed(stmt);
+
+        String stmt2 =
+                "CREATE VIEW v14(c1 COMMENT 'comment1', c2) AS SELECT c1, C2 FROM t1 WITH READ ONLY";
+        assertSqlCanBeParsedAndDeparsed(stmt2);
+
+        String stmt3 =
+                "CREATE VIEW v14(c1, c2) COMMENT = 'view' AS SELECT c1, C2 FROM t1 WITH READ ONLY";
+        assertSqlCanBeParsedAndDeparsed(stmt3);
+    }
+
+    @Test
+    public void testCreateViewWithTableComment1() throws JSQLParserException {
+        String stmt =
+                "CREATE VIEW v14(c1 COMMENT 'comment1', c2 COMMENT 'comment2') COMMENT 'view' AS SELECT c1, C2 FROM t1 WITH READ ONLY";
+        assertSqlCanBeParsedAndDeparsed(stmt);
+    }
+
+    @Test
+    public void testCreateViewWithTableComment2() throws JSQLParserException {
+        String stmt =
+                "CREATE VIEW v14(c1 COMMENT 'comment1', c2 COMMENT 'comment2') COMMENT = 'view' AS SELECT c1, C2 FROM t1 WITH READ ONLY";
+        assertSqlCanBeParsedAndDeparsed(stmt);
     }
 
 }

@@ -15,10 +15,15 @@ import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.util.deparser.ExpressionDeParser;
 import net.sf.jsqlparser.util.deparser.SelectDeParser;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  *
@@ -55,15 +60,12 @@ public class TableTest {
         SelectDeParser deparser = new SelectDeParser(expressionDeParser, buffer) {
 
             @Override
-            public void visit(Table tableName) {
-                System.out.println(tableName);
-                tableName.setDatabase(database); // Exception
-                System.out.println(tableName.getDatabase());
+            public <S> StringBuilder visit(Table table, S parameters) {
+                table.setDatabase(database); // Exception
+                return null;
             }
         };
-
-        deparser.visit((PlainSelect) select);
-
+        deparser.visit((PlainSelect) select, null);
     }
 
     @Test
@@ -72,5 +74,59 @@ public class TableTest {
         assertThat(table.getFullyQualifiedName()).isEqualTo("link.DICTIONARY");
         table.setSchemaName(null);
         assertThat(table.getFullyQualifiedName()).isEqualTo("DICTIONARY");
+    }
+
+    @Test
+    public void testConstructorDelimitersInappropriateSize() {
+        assertThatThrownBy(
+                () -> new Table(List.of("a", "b", "c"), List.of("too", "many", "delimiters")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "the length of the delimiters list must be 1 less than nameParts");
+    }
+
+    @Test
+    void testBigQueryFullQuotedName() throws JSQLParserException {
+        String sqlStr = "select * from `d.s.t`";
+        PlainSelect select = (PlainSelect) CCJSqlParserUtil.parse(sqlStr);
+        Table table = (Table) select.getFromItem();
+
+        assertEquals("\"d\"", table.getCatalogName());
+        assertEquals("\"s\"", table.getSchemaName());
+        assertEquals("\"t\"", table.getName());
+
+        assertEquals("d", table.getUnquotedDatabaseName());
+        assertEquals("s", table.getUnquotedSchemaName());
+        assertEquals("t", table.getUnquotedName());
+
+        sqlStr = "select * from `s.t`";
+        select = (PlainSelect) CCJSqlParserUtil.parse(sqlStr);
+        table = (Table) select.getFromItem();
+
+        assertNull(table.getCatalogName());
+        assertEquals("\"s\"", table.getSchemaName());
+        assertEquals("\"t\"", table.getName());
+
+        assertNull(table.getUnquotedDatabaseName());
+        assertEquals("s", table.getUnquotedSchemaName());
+        assertEquals("t", table.getUnquotedName());
+    }
+
+    @Test
+    void testClone() {
+        Table t = new Table("a.b.c");
+        t.setResolvedTable(t);
+
+        Assertions.assertNotSame(t.clone(), t);
+        Assertions.assertNotEquals(t.clone(), t);
+    }
+
+    @Test
+    void testWithSchema() {
+        Table t = new Table("a");
+        t.setSchemaName("UNNAMED.session1");
+
+        Assertions.assertEquals("UNNAMED", t.getDatabaseName());
+        Assertions.assertEquals("session1", t.getSchemaName());
     }
 }

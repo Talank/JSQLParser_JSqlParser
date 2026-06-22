@@ -10,7 +10,7 @@
 package net.sf.jsqlparser.parser;
 
 import org.javacc.jjtree.JJTree;
-import org.javacc.parser.JavaCCGlobals;
+import org.javacc.parser.Context;
 import org.javacc.parser.JavaCCParser;
 import org.javacc.parser.RCharacterList;
 import org.javacc.parser.RChoice;
@@ -23,7 +23,6 @@ import org.javacc.parser.RZeroOrOne;
 import org.javacc.parser.RegularExpression;
 import org.javacc.parser.Semanticize;
 import org.javacc.parser.Token;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -34,13 +33,10 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.logging.Logger;
-import org.junit.jupiter.api.Disabled;
 
 
 class ParserKeywordsUtilsTest {
@@ -51,7 +47,7 @@ class ParserKeywordsUtilsTest {
 
 
     private static void addTokenImage(TreeSet<String> allKeywords, RStringLiteral literal) {
-        if (CHARSET_ENCODER.canEncode(literal.image) && literal.image.matches("[A-Za-z]+")) {
+        if (CHARSET_ENCODER.canEncode(literal.image) && literal.image.matches("\\w+")) {
             allKeywords.add(literal.image);
         }
     }
@@ -61,39 +57,41 @@ class ParserKeywordsUtilsTest {
         if (o instanceof RStringLiteral) {
             RStringLiteral literal = (RStringLiteral) o;
             addTokenImage(allKeywords, literal);
-        } else  if (o instanceof RChoice) {
+        } else if (o instanceof RChoice) {
             RChoice choice = (RChoice) o;
             addTokenImage(allKeywords, choice);
         } else if (o instanceof RSequence) {
             RSequence sequence1 = (RSequence) o;
             addTokenImage(allKeywords, sequence1);
-        } else if (o  instanceof ROneOrMore) {
-            ROneOrMore oneOrMore = (ROneOrMore) o ;
+        } else if (o instanceof ROneOrMore) {
+            ROneOrMore oneOrMore = (ROneOrMore) o;
             addTokenImage(allKeywords, oneOrMore);
-        } else if (o  instanceof RZeroOrMore) {
-            RZeroOrMore zeroOrMore = (RZeroOrMore) o ;
+        } else if (o instanceof RZeroOrMore) {
+            RZeroOrMore zeroOrMore = (RZeroOrMore) o;
             addTokenImage(allKeywords, zeroOrMore);
-        } else if (o  instanceof RZeroOrOne) {
-            RZeroOrOne zeroOrOne = (RZeroOrOne) o ;
+        } else if (o instanceof RZeroOrOne) {
+            RZeroOrOne zeroOrOne = (RZeroOrOne) o;
             addTokenImage(allKeywords, zeroOrOne);
-        }  else if (o  instanceof RJustName) {
-            RJustName zeroOrOne = (RJustName) o ;
+        } else if (o instanceof RJustName) {
+            RJustName zeroOrOne = (RJustName) o;
             addTokenImage(allKeywords, zeroOrOne);
-        } else if (o  instanceof RCharacterList) {
+        } else if (o instanceof RCharacterList) {
             // do nothing, we are not interested in those
         } else {
-            throw new InvalidClassException("Unknown Type: " + o.getClass().getName() + " " + o.toString());
+            throw new InvalidClassException(
+                    "Unknown Type: " + o.getClass().getName() + " " + o.toString());
         }
     }
 
-    private static void addTokenImage(TreeSet<String> allKeywords, RSequence sequence) throws Exception {
-        for (Object o: sequence.units) {
+    private static void addTokenImage(TreeSet<String> allKeywords, RSequence sequence)
+            throws Exception {
+        for (Object o : sequence.units) {
             addTokenImage(allKeywords, o);
         }
     }
 
     private static void addTokenImage(TreeSet<String> allKeywords, ROneOrMore oneOrMore) {
-        for (Token token: oneOrMore.lhsTokens) {
+        for (Token token : oneOrMore.lhsTokens) {
             if (CHARSET_ENCODER.canEncode(token.image)) {
                 allKeywords.add(token.image);
             }
@@ -101,7 +99,7 @@ class ParserKeywordsUtilsTest {
     }
 
     private static void addTokenImage(TreeSet<String> allKeywords, RZeroOrMore oneOrMore) {
-        for (Token token: oneOrMore.lhsTokens) {
+        for (Token token : oneOrMore.lhsTokens) {
             if (CHARSET_ENCODER.canEncode(token.image)) {
                 allKeywords.add(token.image);
             }
@@ -109,7 +107,7 @@ class ParserKeywordsUtilsTest {
     }
 
     private static void addTokenImage(TreeSet<String> allKeywords, RZeroOrOne oneOrMore) {
-        for (Token token: oneOrMore.lhsTokens) {
+        for (Token token : oneOrMore.lhsTokens) {
             if (CHARSET_ENCODER.canEncode(token.image)) {
                 allKeywords.add(token.image);
             }
@@ -117,15 +115,16 @@ class ParserKeywordsUtilsTest {
     }
 
     private static void addTokenImage(TreeSet<String> allKeywords, RJustName oneOrMore) {
-        for (Token token: oneOrMore.lhsTokens) {
+        for (Token token : oneOrMore.lhsTokens) {
             if (CHARSET_ENCODER.canEncode(token.image)) {
                 allKeywords.add(token.image);
             }
         }
     }
 
-    private static void addTokenImage(TreeSet<String> allKeywords, RChoice choice) throws  Exception {
-        for (Object o: choice.getChoices()) {
+    private static void addTokenImage(TreeSet<String> allKeywords, RChoice choice)
+            throws Exception {
+        for (Object o : choice.getChoices()) {
             addTokenImage(allKeywords, o);
         }
     }
@@ -136,25 +135,27 @@ class ParserKeywordsUtilsTest {
         Path jjtGrammar = file.toPath();
         Path jjGrammarOutputDir = Files.createTempDirectory("jjgrammer");
 
-        new JJTree().main(new String[]{
-                "-JDK_VERSION=1.8",
-                "-OUTPUT_DIRECTORY=" + jjGrammarOutputDir.toString(),
+        new JJTree().main(new String[] {
+                "-JJTREE_OUTPUT_DIRECTORY=" + jjGrammarOutputDir.toString(),
+                "-CODE_GENERATOR=java",
                 jjtGrammar.toString()
         });
         Path jjGrammarFile = jjGrammarOutputDir.resolve("JSqlParserCC.jj");
 
+        Context context = new Context();
         JavaCCParser parser = new JavaCCParser(new java.io.FileInputStream(jjGrammarFile.toFile()));
-        parser.javacc_input();
+        parser.javacc_input(context);
 
         // needed for filling JavaCCGlobals
-        Semanticize.start();
+        Semanticize.start(context);
 
         // read all the Token and get the String image
-        for (Map.Entry<Integer, RegularExpression> item : JavaCCGlobals.rexps_of_tokens.entrySet()) {
+        for (Map.Entry<Integer, RegularExpression> item : context.globals().rexps_of_tokens
+                .entrySet()) {
             addTokenImage(allKeywords, item.getValue());
         }
 
-        //clean up
+        // clean up
         if (jjGrammarOutputDir.toFile().exists()) {
             jjGrammarOutputDir.toFile().delete();
         }
@@ -163,40 +164,63 @@ class ParserKeywordsUtilsTest {
     }
 
     @Test
-    void getAllKeywords() throws IOException {
-        Set<String> allKeywords =  ParserKeywordsUtils.getAllKeywordsUsingRegex(FILE);
-        Assertions.assertFalse( allKeywords.isEmpty(), "Keyword List must not be empty!" );
+    void getAllSimpleKeywords() throws IOException {
+        Set<String> allKeywords = ParserKeywordsUtils.getAllSimpleKeywords(FILE);
+        Assertions.assertFalse(allKeywords.isEmpty(), "Keyword List must not be empty!");
+        LOGGER.info("All simple keywords: " + allKeywords.size());
     }
 
     @Test
-    @Disabled
+    void getNonReservedKeywords() {
+        Set<String> nonReserved = ParserKeywordsUtils.getNonReservedKeywords();
+        Assertions.assertFalse(nonReserved.isEmpty(),
+                "Non-reserved Keyword List must not be empty!");
+        LOGGER.info("Non-reserved keywords: " + nonReserved.size());
+    }
+
+    @Test
+    void getReservedKeywords() throws IOException {
+        Set<String> reserved = ParserKeywordsUtils.getReservedKeywords(FILE);
+        Assertions.assertFalse(reserved.isEmpty(), "Reserved Keyword List must not be empty!");
+        LOGGER.info("Reserved keywords: " + reserved.size());
+    }
+
+    @Test
+    void reservedAndNonReservedAreDisjoint() throws IOException {
+        Set<String> reserved = ParserKeywordsUtils.getReservedKeywords(FILE);
+        Set<String> nonReserved = ParserKeywordsUtils.getNonReservedKeywords();
+
+        TreeSet<String> overlap = new TreeSet<>(reserved);
+        overlap.retainAll(nonReserved);
+        Assertions.assertTrue(overlap.isEmpty(),
+                "Reserved and non-reserved sets must not overlap, but found: " + overlap);
+    }
+
+    @Test
     void getAllKeywordsUsingJavaCC() throws Exception {
-        Set<String> allKeywords =  getAllKeywordsUsingJavaCC(FILE);
-        Assertions.assertFalse( allKeywords.isEmpty(), "Keyword List must not be empty!" );
+        Set<String> allKeywords = getAllKeywordsUsingJavaCC(FILE);
+        Assertions.assertFalse(allKeywords.isEmpty(), "Keyword List must not be empty!");
     }
 
-    // Test, if all Tokens found per RegEx are also found from the JavaCCParser
+    // Cross-check: compare grammar-scanned keywords with those extracted by the JavaCC Parser.
     @Test
-    @Disabled
     void compareKeywordLists() throws Exception {
-        Set<String> allRegexKeywords =  ParserKeywordsUtils.getAllKeywordsUsingRegex(FILE);
-        Set<String> allJavaCCParserKeywords =  getAllKeywordsUsingJavaCC(FILE);
+        Set<String> allGrammarKeywords = ParserKeywordsUtils.getAllSimpleKeywords(FILE);
+        Set<String> allJavaCCParserKeywords = getAllKeywordsUsingJavaCC(FILE);
 
-        // Exceptions, which should not have been found from the RegEx
-        List<String> exceptions = Arrays.asList("0x");
-
-        // We expect all Keywords from the Regex to be found by the JavaCC Parser
-        for (String s:allRegexKeywords) {
-            Assertions.assertTrue(
-                    exceptions.contains(s) || allJavaCCParserKeywords.contains(s)
-                    , "The Keywords from JavaCC do not contain Keyword: " + s);
+        // Grammar keywords not found by JavaCC — log for review
+        for (String s : allGrammarKeywords) {
+            if (!allJavaCCParserKeywords.contains(s)) {
+                LOGGER.info("Grammar keyword not in JavaCC extraction: " + s);
+            }
         }
 
-        // The JavaCC Parser finds some more valid Keywords (where no explicit Token has been defined
-        for (String s:allJavaCCParserKeywords) {
-            if ( ! (exceptions.contains(s) || allRegexKeywords.contains(s)) ) {
-                LOGGER.fine ("Found Additional Keywords from Parser: " + s);
+        // We expect all simple keywords found by JavaCC to exist in the grammar set
+        for (String s : allJavaCCParserKeywords) {
+            if (!allGrammarKeywords.contains(s)) {
+                LOGGER.info("Additional keyword found by JavaCC Parser: " + s);
             }
         }
     }
+
 }

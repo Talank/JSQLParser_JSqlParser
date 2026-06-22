@@ -9,6 +9,13 @@
  */
 package net.sf.jsqlparser.statement.create;
 
+import static net.sf.jsqlparser.test.TestUtils.assertDeparse;
+import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.StringReader;
@@ -31,13 +38,7 @@ import net.sf.jsqlparser.statement.create.table.ExcludeConstraint;
 import net.sf.jsqlparser.statement.create.table.Index;
 import net.sf.jsqlparser.statement.create.table.RowMovementMode;
 import net.sf.jsqlparser.test.TestException;
-import static net.sf.jsqlparser.test.TestUtils.assertDeparse;
-import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
 import org.assertj.core.api.Assertions;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 public class CreateTableTest {
@@ -71,16 +72,16 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTableAsSelect2() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE newtable AS WITH a AS (SELECT col1, col3 FROM testtable) SELECT col1, col2, col3 FROM b INNER JOIN a ON b.col1 = a.col1";
+        String statement =
+                "CREATE TABLE newtable AS WITH a AS (SELECT col1, col3 FROM testtable) SELECT col1, col2, col3 FROM b INNER JOIN a ON b.col1 = a.col1";
         assertSqlCanBeParsedAndDeparsed(statement);
     }
 
     @Test
     public void testCreateTable() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE mytab (mycol a (10, 20) c nm g, mycol2 mypar1 mypar2 (23,323,3) asdf ('23','123') dasd, "
-                + "PRIMARY KEY (mycol2, mycol)) type = myisam";
+        String statement =
+                "CREATE TABLE mytab (mycol a (10, 20) c nm g, mycol2 mypar1 mypar2 (23,323,3) asdf ('23','123') dasd, "
+                        + "PRIMARY KEY (mycol2, mycol)) type = myisam";
         CreateTable createTable = (CreateTable) parserManager.parse(new StringReader(statement));
         assertEquals(2, createTable.getColumnDefinitions().size());
         assertFalse(createTable.isUnlogged());
@@ -93,9 +94,9 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTableUnlogged() throws JSQLParserException {
-        String statement
-                = "CREATE UNLOGGED TABLE mytab (mycol a (10, 20) c nm g, mycol2 mypar1 mypar2 (23,323,3) asdf ('23','123') dasd, "
-                + "PRIMARY KEY (mycol2, mycol)) type = myisam";
+        String statement =
+                "CREATE UNLOGGED TABLE mytab (mycol a (10, 20) c nm g, mycol2 mypar1 mypar2 (23,323,3) asdf ('23','123') dasd, "
+                        + "PRIMARY KEY (mycol2, mycol)) type = myisam";
         CreateTable createTable = (CreateTable) parserManager.parse(new StringReader(statement));
         assertEquals(2, createTable.getColumnDefinitions().size());
         assertTrue(createTable.isUnlogged());
@@ -108,43 +109,43 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTableUnlogged2() throws JSQLParserException {
-        String statement
-                = "CREATE UNLOGGED TABLE mytab (mycol a (10, 20) c nm g, mycol2 mypar1 mypar2 (23,323,3) asdf ('23','123') dasd, PRIMARY KEY (mycol2, mycol))";
+        String statement =
+                "CREATE UNLOGGED TABLE mytab (mycol a (10, 20) c nm g, mycol2 mypar1 mypar2 (23,323,3) asdf ('23','123') dasd, PRIMARY KEY (mycol2, mycol))";
         assertSqlCanBeParsedAndDeparsed(statement);
     }
 
     @Test
     public void testCreateTableForeignKey() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED, PRIMARY KEY (id), FOREIGN KEY (user_id) REFERENCES ra_user(id))";
+        String statement =
+                "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED, PRIMARY KEY (id), FOREIGN KEY (user_id) REFERENCES ra_user(id))";
         assertSqlCanBeParsedAndDeparsed(statement);
     }
 
     @Test
     public void testCreateTableForeignKey2() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED, PRIMARY KEY (id), CONSTRAINT fkIdx FOREIGN KEY (user_id) REFERENCES ra_user(id))";
+        String statement =
+                "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED, PRIMARY KEY (id), CONSTRAINT fkIdx FOREIGN KEY (user_id) REFERENCES ra_user(id))";
         assertSqlCanBeParsedAndDeparsed(statement);
     }
 
     @Test
     public void testCreateTableForeignKey3() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED REFERENCES ra_user(id), PRIMARY KEY (id))";
+        String statement =
+                "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED REFERENCES ra_user(id), PRIMARY KEY (id))";
         assertSqlCanBeParsedAndDeparsed(statement, true);
     }
 
     @Test
     public void testCreateTableForeignKey4() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED FOREIGN KEY REFERENCES ra_user(id), PRIMARY KEY (id))";
+        String statement =
+                "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED FOREIGN KEY REFERENCES ra_user(id), PRIMARY KEY (id))";
         assertSqlCanBeParsedAndDeparsed(statement, true);
     }
 
     @Test
     public void testCreateTablePrimaryKey() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED, CONSTRAINT pk_name PRIMARY KEY (id))";
+        String statement =
+                "CREATE TABLE test (id INT UNSIGNED NOT NULL AUTO_INCREMENT, string VARCHAR (20), user_id INT UNSIGNED, CONSTRAINT pk_name PRIMARY KEY (id))";
         assertSqlCanBeParsedAndDeparsed(statement);
     }
 
@@ -162,20 +163,30 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTableUniqueConstraint() throws JSQLParserException {
-        String sqlStr
-                = "CREATE TABLE Activities (_id INTEGER PRIMARY KEY AUTOINCREMENT,uuid VARCHAR(255),user_id INTEGER,sound_id INTEGER,sound_type INTEGER,comment_id INTEGER,type String,tags VARCHAR(255),created_at INTEGER,content_id INTEGER,sharing_note_text VARCHAR(255),sharing_note_created_at INTEGER,UNIQUE (created_at, type, content_id, sound_id, user_id))";
+        String sqlStr =
+                "CREATE TABLE Activities ("
+                        + "_id INTEGER PRIMARY KEY AUTOINCREMENT"
+                        + ",uuid VARCHAR(255)"
+                        + ",user_id INTEGER"
+                        + ",sound_id INTEGER"
+                        + ",sound_type INTEGER"
+                        + ",comment_id INTEGER"
+                        + ",type String,tags VARCHAR(255)"
+                        + ",created_at INTEGER"
+                        + ",content_id INTEGER"
+                        + ",sharing_note_text VARCHAR(255)"
+                        + ",sharing_note_created_at INTEGER"
+                        + ",UNIQUE (created_at, type, content_id, sound_id, user_id)"
+                        + ")";
 
         assertSqlCanBeParsedAndDeparsed(sqlStr, true);
-
-        CreateTable createTable
-                = (CreateTable) CCJSqlParserUtil.parseStatements(sqlStr).getStatements().get(0);
-
+        assertTrue(CCJSqlParserUtil.parseStatements(sqlStr).getStatements()
+                .get(0) instanceof CreateTable);
     }
 
     @Test
     public void testCreateTableUniqueConstraintAfterPrimaryKey() throws JSQLParserException {
-        String sqlStr
-                = "-- UniqueConstraintAfterPrimaryKey\n"
+        String sqlStr = "-- UniqueConstraintAfterPrimaryKey\n"
                 + "CREATE TABLE employees (\n"
                 + "    employee_number    int         NOT NULL\n"
                 + "    , employee_name    char (50)   NOT NULL\n"
@@ -189,8 +200,8 @@ public class CreateTableTest {
 
         assertSqlCanBeParsedAndDeparsed(sqlStr, true);
 
-        CreateTable createTable
-                = (CreateTable) CCJSqlParserUtil.parseStatements(sqlStr).getStatements().get(0);
+        CreateTable createTable =
+                (CreateTable) CCJSqlParserUtil.parseStatements(sqlStr).getStatements().get(0);
 
         assertEquals("PRIMARY KEY", createTable.getIndexes().get(0).getType());
         assertEquals("UNIQUE", createTable.getIndexes().get(1).getType());
@@ -205,6 +216,30 @@ public class CreateTableTest {
     @Test
     public void testCreateTableDefault2() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed("CREATE TABLE T1 (id integer default 1)");
+    }
+
+    @Test
+    public void testCreateTableClickHouseMaterializedColumn() throws JSQLParserException {
+        String statement = "CREATE TABLE t (\n"
+                + "    url String,\n"
+                + "    domain String MATERIALIZED regexpExtract(url, '^(?:https?://)?([^/]+)', 1)\n"
+                + ")\n"
+                + "ENGINE = MergeTree()\n"
+                + "ORDER BY tuple()";
+        assertSqlCanBeParsedAndDeparsed(statement, true);
+    }
+
+    @Test
+    public void testCreateTableClickHouseSampleBy() throws JSQLParserException {
+        String statement = "CREATE TABLE tmp.events (\n"
+                + "    id UInt64,\n"
+                + "    user_id UInt32,\n"
+                + "    timestamp DateTime\n"
+                + ")\n"
+                + "ENGINE = MergeTree()\n"
+                + "ORDER BY id\n"
+                + "SAMPLE BY id";
+        assertSqlCanBeParsedAndDeparsed(statement, true);
     }
 
     @Test
@@ -330,6 +365,31 @@ public class CreateTableTest {
     }
 
     @Test
+    public void testMySqlCreateTableWithSpatialIndex() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE TABLE places (id INT NOT NULL, location GEOMETRY NOT NULL, SPATIAL KEY sp_idx_location (location))");
+    }
+
+    @Test
+    public void testMySqlCreateTableIssue2367()
+            throws JSQLParserException {
+        String sql = "CREATE TABLE test (\n"
+                + "id int(11) NOT NULL COMMENT 'data id',\n"
+                + "code varchar(100) NOT NULL COMMENT 'code',\n"
+                + "name varchar(300) DEFAULT NULL COMMENT 'name',\n"
+                + "geo geometry NOT NULL,\n"
+                + "PRIMARY KEY (id),\n"
+                + "UNIQUE KEY index_code (code) USING HASH COMMENT 'unique index on code',\n"
+                + "UNIQUE KEY inx_code_name (code,name) USING BTREE COMMENT 'unique index on code and name',\n"
+                + "UNIQUE KEY inx_id_code_name (id,code,name) USING BTREE COMMENT 'index 1',\n"
+                + "SPATIAL KEY SPATIAL_geo (geo),\n"
+                + "KEY NORMAL_name (name) COMMENT 'normal index',\n"
+                + "FULLTEXT KEY fulltext_name (name)\n"
+                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='test table'";
+        assertSqlCanBeParsedAndDeparsed(sql);
+    }
+
+    @Test
     public void testCreateTableWithCheck() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE table2 (id INT (10) NOT NULL, name TEXT, url TEXT, CONSTRAINT name_not_empty CHECK (name <> ''))");
@@ -356,7 +416,8 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTempTableIssue293() throws JSQLParserException {
-        assertSqlCanBeParsedAndDeparsed("CREATE GLOBAL TEMPORARY TABLE T1 (PROCESSID VARCHAR (32))");
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE GLOBAL TEMPORARY TABLE T1 (PROCESSID VARCHAR (32))");
     }
 
     @Test
@@ -384,12 +445,14 @@ public class CreateTableTest {
 
     @Test
     public void testTableReferenceWithSchema() throws JSQLParserException {
-        assertSqlCanBeParsedAndDeparsed("CREATE TABLE table1 (col1 INTEGER REFERENCES schema1.table1)");
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE TABLE table1 (col1 INTEGER REFERENCES schema1.table1)");
     }
 
     @Test
     public void testNamedColumnConstraint() throws JSQLParserException {
-        assertSqlCanBeParsedAndDeparsed("CREATE TABLE foo (col1 integer CONSTRAINT no_null NOT NULL)");
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE TABLE foo (col1 integer CONSTRAINT no_null NOT NULL)");
     }
 
     @Test
@@ -410,7 +473,8 @@ public class CreateTableTest {
                                                 new GreaterThan()
                                                         .withLeftExpression(new Column("col1"))
                                                         .withRightExpression(new LongValue(100))))
-                        .addColumnDefinitions(new ColumnDefinition("col1", new ColDataType("integer"))),
+                        .addColumnDefinitions(
+                                new ColumnDefinition("col1", new ColDataType("integer"))),
                 statement);
     }
 
@@ -423,7 +487,8 @@ public class CreateTableTest {
                         .withTable(new Table(Arrays.asList("abc", "tabc")))
                         .addColumnDefinitions(
                                 new ColumnDefinition(
-                                        "transaction_date", new ColDataType("TIMESTAMP WITHOUT TIME ZONE"))),
+                                        "transaction_date",
+                                        new ColDataType("TIMESTAMP WITHOUT TIME ZONE"))),
                 statement);
     }
 
@@ -449,16 +514,17 @@ public class CreateTableTest {
     public void testTimestampWithTimezone() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE country_region ("
-                + "regionid BIGINT NOT NULL CONSTRAINT pk_auth_region PRIMARY KEY, "
-                + "region_name VARCHAR (100) NOT NULL, "
-                + "creation_date TIMESTAMP (0) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP (0) NOT NULL, "
-                + "last_change_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP (0), "
-                + "CONSTRAINT region_name_unique UNIQUE (region_name))");
+                        + "regionid BIGINT NOT NULL CONSTRAINT pk_auth_region PRIMARY KEY, "
+                        + "region_name VARCHAR (100) NOT NULL, "
+                        + "creation_date TIMESTAMP (0) WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP (0) NOT NULL, "
+                        + "last_change_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP (0), "
+                        + "CONSTRAINT region_name_unique UNIQUE (region_name))");
     }
 
     @Test
     public void testCreateTableAsSelect3() throws JSQLParserException {
-        assertSqlCanBeParsedAndDeparsed("CREATE TABLE public.sales1 AS (SELECT * FROM public.sales)");
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE TABLE public.sales1 AS (SELECT * FROM public.sales)");
     }
 
     @Test
@@ -506,10 +572,9 @@ public class CreateTableTest {
 
     @Test
     public void testRUBiSCreateList() throws Exception {
-        BufferedReader in
-                = new BufferedReader(
-                        new InputStreamReader(
-                                CreateTableTest.class.getResourceAsStream("/RUBiS-create-requests.txt")));
+        BufferedReader in = new BufferedReader(
+                new InputStreamReader(
+                        CreateTableTest.class.getResourceAsStream("/RUBiS-create-requests.txt")));
 
         try {
             int numSt = 1;
@@ -541,7 +606,8 @@ public class CreateTableTest {
                 String tableName = getLine(in);
                 String cols = getLine(in);
                 try {
-                    CreateTable createTable = (CreateTable) parserManager.parse(new StringReader(query));
+                    CreateTable createTable =
+                            (CreateTable) parserManager.parse(new StringReader(query));
                     String[] colsList = null;
                     if ("null".equals(cols)) {
                         colsList = new String[0];
@@ -557,7 +623,8 @@ public class CreateTableTest {
                     }
                     List<String> colsFound = new ArrayList<>();
                     if (createTable.getColumnDefinitions() != null) {
-                        for (ColumnDefinition columnDefinition : createTable.getColumnDefinitions()) {
+                        for (ColumnDefinition columnDefinition : createTable
+                                .getColumnDefinitions()) {
                             String colName = columnDefinition.getColumnName();
                             boolean unique = false;
                             if (createTable.getIndexes() != null) {
@@ -572,8 +639,9 @@ public class CreateTableTest {
 
                             if (!unique) {
                                 if (columnDefinition.getColumnSpecs() != null) {
-                                    for (Iterator<String> iterator = columnDefinition.getColumnSpecs().iterator();
-                                            iterator.hasNext();) {
+                                    for (Iterator<String> iterator =
+                                            columnDefinition.getColumnSpecs().iterator(); iterator
+                                                    .hasNext();) {
                                         String par = iterator.next();
                                         if (par.equals("UNIQUE")) {
                                             unique = true;
@@ -616,7 +684,8 @@ public class CreateTableTest {
             if (line != null) {
                 if (line.length() != 0
                         && (line.length() < 2
-                        || line.length() >= 2 && !(line.charAt(0) == '/' && line.charAt(1) == '/'))) {
+                                || line.length() >= 2
+                                        && !(line.charAt(0) == '/' && line.charAt(1) == '/'))) {
                     break;
                 }
             } else {
@@ -649,36 +718,36 @@ public class CreateTableTest {
     public void testCreateTableIssue798_2() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE parent (\n"
-                + "PARENT_ID int(11) NOT NULL AUTO_INCREMENT,\n"
-                + "PCN varchar(100) NOT NULL,\n"
-                + "IS_DELETED char(1) NOT NULL,\n"
-                + "STRUCTURE_ID int(11) NOT NULL,\n"
-                + "DIRTY_STATUS char(1) NOT NULL,\n"
-                + "BIOLOGICAL char(1) NOT NULL,\n"
-                + "STRUCTURE_TYPE int(11) NOT NULL,\n"
-                + "CST_ORIGINAL varchar(1000) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT NULL,\n"
-                + "MWT decimal(14,6) DEFAULT NULL,\n"
-                + "RESTRICTED int(11) NOT NULL,\n"
-                + "INIT_DATE datetime DEFAULT NULL,\n"
-                + "MOD_DATE datetime DEFAULT NULL,\n"
-                + "CREATED_BY varchar(255) NOT NULL,\n"
-                + "MODIFIED_BY varchar(255) NOT NULL,\n"
-                + "CHEMIST_ID varchar(255) NOT NULL,\n"
-                + "UNKNOWN_ID int(11) DEFAULT NULL,\n"
-                + "STEREOCHEMISTRY varchar(256) DEFAULT NULL,\n"
-                + "GEOMETRIC_ISOMERISM varchar(256) DEFAULT NULL,\n"
-                + "PRIMARY KEY (PARENT_ID),\n"
-                + "UNIQUE KEY PARENT_PCN_IDX (PCN),\n"
-                + "KEY PARENT_SID_IDX (STRUCTURE_ID),\n"
-                + "KEY PARENT_DIRTY_IDX (DIRTY_STATUS)\n"
-                + ") ENGINE=InnoDB AUTO_INCREMENT=2663 DEFAULT CHARSET=utf8",
+                        + "PARENT_ID int(11) NOT NULL AUTO_INCREMENT,\n"
+                        + "PCN varchar(100) NOT NULL,\n"
+                        + "IS_DELETED char(1) NOT NULL,\n"
+                        + "STRUCTURE_ID int(11) NOT NULL,\n"
+                        + "DIRTY_STATUS char(1) NOT NULL,\n"
+                        + "BIOLOGICAL char(1) NOT NULL,\n"
+                        + "STRUCTURE_TYPE int(11) NOT NULL,\n"
+                        + "CST_ORIGINAL varchar(1000) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT NULL,\n"
+                        + "MWT decimal(14,6) DEFAULT NULL,\n"
+                        + "RESTRICTED int(11) NOT NULL,\n"
+                        + "INIT_DATE datetime DEFAULT NULL,\n"
+                        + "MOD_DATE datetime DEFAULT NULL,\n"
+                        + "CREATED_BY varchar(255) NOT NULL,\n"
+                        + "MODIFIED_BY varchar(255) NOT NULL,\n"
+                        + "CHEMIST_ID varchar(255) NOT NULL,\n"
+                        + "UNKNOWN_ID int(11) DEFAULT NULL,\n"
+                        + "STEREOCHEMISTRY varchar(256) DEFAULT NULL,\n"
+                        + "GEOMETRIC_ISOMERISM varchar(256) DEFAULT NULL,\n"
+                        + "PRIMARY KEY (PARENT_ID),\n"
+                        + "UNIQUE KEY PARENT_PCN_IDX (PCN),\n"
+                        + "KEY PARENT_SID_IDX (STRUCTURE_ID),\n"
+                        + "KEY PARENT_DIRTY_IDX (DIRTY_STATUS)\n"
+                        + ") ENGINE=InnoDB AUTO_INCREMENT=2663 DEFAULT CHARSET=utf8",
                 true);
     }
 
     @Test
     public void testCreateTableIssue113() throws JSQLParserException {
-        String statement
-                = "CREATE TABLE foo (reason character varying (255) DEFAULT 'Test' :: character varying NOT NULL)";
+        String statement =
+                "CREATE TABLE foo (reason character varying (255) DEFAULT 'Test' :: character varying NOT NULL)";
         assertSqlCanBeParsedAndDeparsed(statement);
         assertDeparse(
                 new CreateTable()
@@ -690,8 +759,11 @@ public class CreateTableTest {
                                                 .withColDataType(
                                                         new ColDataType()
                                                                 .withDataType("character varying")
-                                                                .addArgumentsStringList(Arrays.asList("255")))
-                                                .addColumnSpecs("DEFAULT 'Test' :: character varying", "NOT NULL"))),
+                                                                .addArgumentsStringList(
+                                                                        Arrays.asList("255")))
+                                                .addColumnSpecs(
+                                                        "DEFAULT 'Test' :: character varying",
+                                                        "NOT NULL"))),
                 statement);
     }
 
@@ -702,21 +774,21 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTableIssue830_2() throws JSQLParserException {
-        assertSqlCanBeParsedAndDeparsed("CREATE TABLE testyesr (id int, yy year, mm month, dd day)");
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE TABLE testyesr (id int, yy year, mm month, dd day)");
     }
 
     @Test
     public void testSettingCharacterSetIssue829() throws JSQLParserException {
-        String sql
-                = "CREATE TABLE test (id int (11) NOT NULL, name varchar (64) CHARACTER SET GBK NOT NULL, age int (11) NOT NULL, score decimal (8, 2) DEFAULT NULL, description varchar (64) DEFAULT NULL, creationDate datetime DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id)) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4";
+        String sql =
+                "CREATE TABLE test (id int (11) NOT NULL, name varchar (64) CHARACTER SET GBK NOT NULL, age int (11) NOT NULL, score decimal (8, 2) DEFAULT NULL, description varchar (64) DEFAULT NULL, creationDate datetime DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id)) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4";
         assertSqlCanBeParsedAndDeparsed(sql);
         CreateTable stmt = (CreateTable) CCJSqlParserUtil.parse(sql);
 
-        ColumnDefinition colName
-                = stmt.getColumnDefinitions().stream()
-                        .filter(col -> col.getColumnName().equals("name"))
-                        .findFirst()
-                        .orElse(null);
+        ColumnDefinition colName = stmt.getColumnDefinitions().stream()
+                .filter(col -> col.getColumnName().equals("name"))
+                .findFirst()
+                .orElse(null);
 
         assertNotNull(colName);
 
@@ -736,6 +808,24 @@ public class CreateTableTest {
     }
 
     @Test
+    public void testCreateTableWithFunctionalIndex() throws JSQLParserException {
+        String sql =
+                "CREATE TABLE t (PK INT, b INT, c INT, INDEX fAdd ((b + c), (COALESCE(PK, b)) DESC))";
+        CreateTable createTable = (CreateTable) CCJSqlParserUtil.parse(sql);
+
+        assertNotNull(createTable.getIndexes());
+        assertEquals(1, createTable.getIndexes().size());
+        assertEquals("fAdd", createTable.getIndexes().get(0).getName());
+        assertTrue(createTable.getIndexes().get(0).getColumns().get(0).isExpression());
+        assertEquals("b + c", createTable.getIndexes().get(0).getColumns().get(0).getColumnName());
+        assertTrue(createTable.getIndexes().get(0).getColumns().get(1).isExpression());
+        assertEquals("COALESCE(PK, b)",
+                createTable.getIndexes().get(0).getColumns().get(1).getColumnName());
+
+        assertSqlCanBeParsedAndDeparsed(sql);
+    }
+
+    @Test
     public void testCreateTableIssue921() throws JSQLParserException {
         String statement = "CREATE TABLE binary_test (c1 binary (10))";
         assertSqlCanBeParsedAndDeparsed(statement);
@@ -745,7 +835,8 @@ public class CreateTableTest {
                         .addColumnDefinitions(
                                 new ColumnDefinition(
                                         "c1",
-                                        new ColDataType().withDataType("binary").addArgumentsStringList("10"),
+                                        new ColDataType().withDataType("binary")
+                                                .addArgumentsStringList("10"),
                                         null)),
                 statement);
     }
@@ -754,17 +845,17 @@ public class CreateTableTest {
     public void testCreateTableWithComments() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE IF NOT EXISTS `eai_applications`(\n"
-                + "  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'comment',\n"
-                + "  `name` varchar(64) NOT NULL COMMENT 'comment',\n"
-                + "  `logo` varchar(128) DEFAULT NULL COMMENT 'comment',\n"
-                + "  `description` varchar(128) DEFAULT NULL COMMENT 'comment',\n"
-                + "  `type` int(11) NOT NULL COMMENT 'comment',\n"
-                + "  `status` tinyint(2) NOT NULL COMMENT 'comment',\n"
-                + "  `creator_id` bigint(20) NOT NULL COMMENT 'comment',\n"
-                + "  `created_at` datetime NOT NULL COMMENT 'comment',\n"
-                + "  `updated_at` datetime NOT NULL COMMENT 'comment',\n"
-                + "  PRIMARY KEY (`id`)\n"
-                + ") COMMENT='comment'",
+                        + "  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'comment',\n"
+                        + "  `name` varchar(64) NOT NULL COMMENT 'comment',\n"
+                        + "  `logo` varchar(128) DEFAULT NULL COMMENT 'comment',\n"
+                        + "  `description` varchar(128) DEFAULT NULL COMMENT 'comment',\n"
+                        + "  `type` int(11) NOT NULL COMMENT 'comment',\n"
+                        + "  `status` tinyint(2) NOT NULL COMMENT 'comment',\n"
+                        + "  `creator_id` bigint(20) NOT NULL COMMENT 'comment',\n"
+                        + "  `created_at` datetime NOT NULL COMMENT 'comment',\n"
+                        + "  `updated_at` datetime NOT NULL COMMENT 'comment',\n"
+                        + "  PRIMARY KEY (`id`)\n"
+                        + ") COMMENT='comment'",
                 true);
     }
 
@@ -772,10 +863,10 @@ public class CreateTableTest {
     public void testCreateTableWithCommentIssue922() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE index_with_comment_test (\n"
-                + "id int(11) NOT NULL,\n"
-                + "name varchar(60) DEFAULT NULL,\n"
-                + "KEY name_ind (name) COMMENT 'comment for the name index'\n"
-                + ") ENGINE=InnoDB DEFAULT CHARSET=utf8",
+                        + "id int(11) NOT NULL,\n"
+                        + "name varchar(60) DEFAULT NULL,\n"
+                        + "KEY name_ind (name) COMMENT 'comment for the name index'\n"
+                        + ") ENGINE=InnoDB DEFAULT CHARSET=utf8",
                 true);
     }
 
@@ -785,7 +876,8 @@ public class CreateTableTest {
 
         CreateTable createTable = (CreateTable) CCJSqlParserUtil.parse(sql);
         Assertions.assertThat(createTable.getRowMovement()).isNotNull();
-        Assertions.assertThat(createTable.getRowMovement().getMode()).isEqualTo(RowMovementMode.ENABLE);
+        Assertions.assertThat(createTable.getRowMovement().getMode())
+                .isEqualTo(RowMovementMode.ENABLE);
 
         assertSqlCanBeParsedAndDeparsed(sql);
     }
@@ -804,7 +896,8 @@ public class CreateTableTest {
 
     @Test
     public void tableMovementWithAS() throws JSQLParserException {
-        String sql = "CREATE TABLE test (startdate DATE) DISABLE ROW MOVEMENT AS SELECT 1 FROM dual";
+        String sql =
+                "CREATE TABLE test (startdate DATE) DISABLE ROW MOVEMENT AS SELECT 1 FROM dual";
         assertSqlCanBeParsedAndDeparsed(sql);
     }
 
@@ -852,6 +945,18 @@ public class CreateTableTest {
     }
 
     @Test
+    public void testCreateTableGeneratedAlwaysAsIdentityRegression() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed(
+                "create table if not exists book_type ( id bigint not null generated always as identity )");
+    }
+
+    @Test
+    public void testCreateTableGeneratedByDefaultAsIdentityRegression() throws JSQLParserException {
+        assertSqlCanBeParsedAndDeparsed(
+                "create table if not exists book_type ( id bigint not null generated by default as identity )");
+    }
+
+    @Test
     public void testCreateUnionIssue1309() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE temp.abc AS (SELECT c FROM t1) UNION (SELECT c FROM t2)");
@@ -859,7 +964,8 @@ public class CreateTableTest {
 
     @Test
     public void testCreateTableBinaryIssue1518() throws JSQLParserException {
-        assertSqlCanBeParsedAndDeparsed("CREATE TABLE `s` (`a` enum ('a', 'b', 'c') CHARACTER SET binary COLLATE binary)");
+        assertSqlCanBeParsedAndDeparsed(
+                "CREATE TABLE `s` (`a` enum ('a', 'b', 'c') CHARACTER SET binary COLLATE binary)");
     }
 
     @Test
@@ -889,7 +995,8 @@ public class CreateTableTest {
                 + "INDEX ucr_index_sim_id(sim_id) USING BTREE,\n"
                 + "INDEX ucr_index_status(status) USING BTREE,\n"
                 + "INDEX ucr_index_talk_time(talk_time) USING BTREE\n"
-                + ") ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic", true);
+                + ") ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_general_ci ROW_FORMAT = Dynamic",
+                true);
     }
 
     @Test
@@ -910,33 +1017,149 @@ public class CreateTableTest {
     public void testCreateTableSpanner() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
                 "CREATE TABLE COMMAND (\n" +
-                "   DATASET_ID      INT64       NOT NULL,\n" +
-                "   COMMAND_ID      STRING(MAX) NOT NULL,\n" +
-                "   VAL_BOOL        BOOL,\n" +
-                "   VAL_BYTES       BYTES(1024),\n" +
-                "   VAL_DATE        DATE,\n" +
-                "   VAL_TIMESTAMP   TIMESTAMP,\n" +
-                "   VAL_COMMIT_TIMESTAMP   TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp = true),\n" +
-                "   VAL_FLOAT64     FLOAT64,\n" +
-                "   VAL_JSON        JSON(2048),\n" +
-                "   VAL_NUMERIC     NUMERIC,\n" +
-                "   VAL_STRING      STRING(MAX),\n" +
-                "   VAL_TIMESTAMP   TIMESTAMP,\n" +
-                "   ARR_BOOL        ARRAY<BOOL>,\n" +
-                "   ARR_BYTES       ARRAY<BYTES(1024)>,\n" +
-                "   ARR_DATE        ARRAY<DATE>,\n" +
-                "   ARR_TIMESTAMP   ARRAY<TIMESTAMP>,\n" +
-                "   ARR_FLOAT64     ARRAY<FLOAT64>,\n" +
-                "   ARR_JSON        ARRAY<JSON(2048)>,\n" +
-                "   ARR_NUMERIC     ARRAY<NUMERIC>,\n" +
-                "   ARR_STRING      ARRAY<STRING(MAX)>,\n" +
-                "   ARR_TIMESTAMP   ARRAY<TIMESTAMP>,\n" +
-                "   PAYLOAD         STRING(MAX),\n" +
-                "   AUTHOR          STRING(MAX) NOT NULL,\n" +
-                "   SEARCH          STRING(MAX) AS (UPPER(AUTHOR)) STORED\n" +
-                " ) PRIMARY KEY ( DATASET_ID, COMMAND_ID )\n" +
-                ",   INTERLEAVE IN PARENT DATASET ON DELETE CASCADE", true);
+                        "   DATASET_ID      INT64       NOT NULL,\n" +
+                        "   COMMAND_ID      STRING(MAX) NOT NULL,\n" +
+                        "   VAL_BOOL        BOOL,\n" +
+                        "   VAL_BYTES       BYTES(1024),\n" +
+                        "   VAL_DATE        DATE,\n" +
+                        "   VAL_TIMESTAMP   TIMESTAMP,\n" +
+                        "   VAL_COMMIT_TIMESTAMP   TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp = true),\n"
+                        +
+                        "   VAL_FLOAT64     FLOAT64,\n" +
+                        "   VAL_JSON        JSON(2048),\n" +
+                        "   VAL_NUMERIC     NUMERIC,\n" +
+                        "   VAL_STRING      STRING(MAX),\n" +
+                        "   VAL_TIMESTAMP   TIMESTAMP,\n" +
+                        "   ARR_BOOL        ARRAY<BOOL>,\n" +
+                        "   ARR_BYTES       ARRAY<BYTES(1024)>,\n" +
+                        "   ARR_DATE        ARRAY<DATE>,\n" +
+                        "   ARR_TIMESTAMP   ARRAY<TIMESTAMP>,\n" +
+                        "   ARR_FLOAT64     ARRAY<FLOAT64>,\n" +
+                        "   ARR_JSON        ARRAY<JSON(2048)>,\n" +
+                        "   ARR_NUMERIC     ARRAY<NUMERIC>,\n" +
+                        "   ARR_STRING      ARRAY<STRING(MAX)>,\n" +
+                        "   ARR_TIMESTAMP   ARRAY<TIMESTAMP>,\n" +
+                        "   PAYLOAD         STRING(MAX),\n" +
+                        "   AUTHOR          STRING(MAX) NOT NULL,\n" +
+                        "   SEARCH          STRING(MAX) AS (UPPER(AUTHOR)) STORED\n" +
+                        " ) PRIMARY KEY ( DATASET_ID, COMMAND_ID )\n" +
+                        ",   INTERLEAVE IN PARENT DATASET ON DELETE CASCADE",
+                true);
     }
 
 
+    @Test
+    void testCreateTableWithStartWithNumber() throws JSQLParserException {
+        String sqlStr =
+                "CREATE TABLE locations\n"
+                        + "  (\n"
+                        + "    location_id NUMBER GENERATED BY DEFAULT AS IDENTITY START WITH 24 \n"
+                        + "                PRIMARY KEY       ,\n"
+                        + "    address     VARCHAR2( 255 ) NOT NULL,\n"
+                        + "    postal_code VARCHAR2( 20 )          ,\n"
+                        + "    city        VARCHAR2( 50 )          ,\n"
+                        + "    state       VARCHAR2( 50 )          ,\n"
+                        + "    country_id  CHAR( 2 )               , -- fk\n"
+                        + "    CONSTRAINT fk_locations_countries \n"
+                        + "      FOREIGN KEY( country_id )\n"
+                        + "      REFERENCES countries( country_id ) \n"
+                        + "      ON DELETE CASCADE\n"
+                        + "  )";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    void testCreateTableWithNextValueFor() throws JSQLParserException {
+        String sqlStr =
+                "CREATE TABLE public.actor (\n"
+                        + "    actor_id integer DEFAULT nextval('public.actor_actor_id_seq'::regclass) NOT NULL\n"
+                        + ")";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        sqlStr =
+                " CREATE TABLE myschema.tableName (\n"
+                        + "                id bigint NOT NULL DEFAULT nextval('myschema.mysequence'::regclass), \n"
+                        + "                bool_col boolean NOT NULL DEFAULT false, \n"
+                        + "                int_col integer NOT NULL DEFAULT 0)";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        sqlStr =
+                " CREATE TABLE t1 (\n"
+                        + "  -- literal defaults\n"
+                        + "  i INT         DEFAULT 0,\n"
+                        + "  c VARCHAR(10) DEFAULT '',\n"
+                        + "  -- expression defaults\n"
+                        + "  f FLOAT       DEFAULT (RAND() * RAND()),\n"
+                        + "  b BINARY(16)  DEFAULT (UUID_TO_BIN(UUID())),\n"
+                        + "  d DATE        DEFAULT (CURRENT_DATE + INTERVAL 1 YEAR),\n"
+                        + "  p POINT       DEFAULT (Point(0,0)),\n"
+                        + "  j JSON        DEFAULT (JSON_ARRAY())\n"
+                        + ")";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        sqlStr =
+                " CREATE TABLE pagila_dev.actor (\n"
+                        + "actor_id integer DEFAULT nextval('pagila_dev.actor_actor_id_seq'::regclass) NOT NULL,\n"
+                        + "first_name text NOT NULL,\n"
+                        + "last_name text NOT NULL,\n"
+                        + "last_update timestamp with time zone DEFAULT now() NOT NULL\n"
+                        + ")";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        sqlStr =
+                "CREATE TABLE \"public\".\"device_bayonet_copy1\" ( "
+                        + "\"id\" int8 NOT NULL"
+                        + ", \"device_code\" varchar(128) COLLATE \"pg_catalog\".\"default\""
+                        + ", \"longitude_latitude\" varchar(128) COLLATE \"pg_catalog\".\"default\""
+                        + ", \"longitude_latitude_gis\" \"public\".\"geometry\""
+                        + ", \"direction\" varchar(128) COLLATE \"pg_catalog\".\"default\""
+                        + ", \"brand\" varchar(128) COLLATE \"pg_catalog\".\"default\""
+                        + ", \"test\" \"information_schema\".\"time_stamp\""
+                        + ", CONSTRAINT \"device_bayonet_copy1_pkey\" PRIMARY KEY (\"id\") "
+                        + ")";
+
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    void testIssue1858() throws JSQLParserException {
+        String sqlStr = "CREATE TABLE \"foo\"\n"
+                + "(\n"
+                + "    event_sk               bigint identity             NOT NULL encode RAW\n"
+                + ") compound sortkey (      date_key      )";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    void testIssue1864() throws JSQLParserException {
+        String sqlStr = "ALTER TABLE `test`.`test_table` "
+                + "MODIFY COLUMN `test` varchar(251) "
+                + " CHARACTER SET armscii8 COLLATE armscii8_bin NULL DEFAULT NULL FIRST";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    void testUniqueAfterForeignKeyIssue2082() throws JSQLParserException {
+        String sqlStr =
+                "CREATE TABLE employees (\n" +
+                        "employee_number    int         NOT NULL\n" +
+                        ", employee_name    char (50)   NOT NULL\n" +
+                        ", department_id    int\n" +
+                        ", salary           int\n" +
+                        ", PRIMARY KEY (employee_number)\n" +
+                        ", FOREIGN KEY (department_id) REFERENCES departments(id)\n" +
+                        ", UNIQUE (employee_name));";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    void testWithCatalog() throws JSQLParserException {
+        String sqlStr = "CREATE TABLE UNNAMED.session1.a (b VARCHAR (1))";
+        CreateTable st = (CreateTable) assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        Table t = st.getTable();
+        assertEquals("UNNAMED", t.getCatalogName());
+        assertEquals("session1", t.getSchemaName());
+        assertEquals("a", t.getUnquotedName());
+    }
 }

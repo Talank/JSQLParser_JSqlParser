@@ -9,11 +9,18 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import org.apache.commons.io.FileUtils;
+import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.util.Arrays;
 import java.util.Date;
@@ -21,22 +28,17 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+
 import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
-import org.apache.commons.io.FileUtils;
-import org.assertj.core.api.Assertions;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
 
 /**
- * Tries to parse and deparse all statments in net.sf.jsqlparser.test.oracle-tests.
- *
+ * Tries to parse and de-parse all statements in net.sf.jsqlparser.test.oracle-tests.
+ * <p>
  * As a matter of fact there are a lot of files that can still not processed. Here a step by step
  * improvement is the way to go.
- *
+ * <p>
  * The test ensures, that the successful parsed file count does not decrease.
  *
  * @author toben
@@ -59,6 +61,7 @@ public class SpecialOracleTest {
 
     private final List<String> EXPECTED_SUCCESSES = Arrays.asList("aggregate01.sql",
             "analytic_query04.sql", "analytic_query05.sql", "analytic_query06.sql",
+            "analytic_query07.sql",
             "analytic_query08.sql", "analytic_query09.sql", "analytic_query10.sql", "bindvar01.sql",
             "bindvar02.sql", "bindvar05.sql", "case_when01.sql", "case_when02.sql",
             "case_when03.sql", "case_when04.sql", "case_when05.sql", "cast_multiset01.sql",
@@ -73,39 +76,51 @@ public class SpecialOracleTest {
             "cast_multiset30.sql", "cast_multiset31.sql", "cast_multiset32.sql",
             "cast_multiset33.sql", "cast_multiset35.sql", "cast_multiset36.sql",
             "cast_multiset40.sql", "cast_multiset41.sql", "cast_multiset42.sql",
-            "cast_multiset43.sql", "columns01.sql", "condition01.sql", "condition02.sql",
-            "condition03.sql", "condition04.sql", "condition05.sql", "condition07.sql",
-            "condition08.sql", "condition09.sql", "condition10.sql", "condition12.sql",
+            "cast_multiset43.sql", "cluster_set01.sql", "columns01.sql", "condition01.sql",
+            "condition02.sql",
+            "condition03.sql", "condition04.sql", "condition05.sql", "condition06.sql",
+            "condition07.sql",
+            "condition08.sql", "condition09.sql", "condition10.sql", "condition11.sql",
+            "condition12.sql",
             "condition14.sql", "condition15.sql", "condition19.sql", "condition20.sql",
             "connect_by01.sql", "connect_by02.sql", "connect_by03.sql", "connect_by04.sql",
-            "connect_by05.sql", "connect_by06.sql", "connect_by07.sql", "datetime01.sql",
+            "connect_by05.sql", "connect_by06.sql", "connect_by07.sql", "connect_by08.sql",
+            "connect_by09.sql", "connect_by10.sql", "datetime01.sql",
             "datetime02.sql", "datetime04.sql", "datetime05.sql", "datetime06.sql", "dblink01.sql",
             "for_update01.sql", "for_update02.sql", "for_update03.sql", "function04.sql",
             "function05.sql", "for_update04.sql", "for_update05.sql", "for_update06.sql",
-            "for_update08.sql", "function01.sql", "function02.sql", "groupby01.sql",
+            "for_update07.sql", "for_update08.sql",
+            "function01.sql", "function02.sql", "function03.sql",
+            "function06.sql", "function07.sql",
+            "groupby01.sql",
             "groupby02.sql", "groupby03.sql", "groupby04.sql", "groupby05.sql", "groupby06.sql",
             "groupby08.sql", "groupby09.sql", "groupby10.sql", "groupby11.sql", "groupby12.sql",
             "groupby13.sql", "groupby14.sql", "groupby15.sql", "groupby16.sql", "groupby17.sql",
             "groupby19.sql", "groupby20.sql", "groupby21.sql", "groupby22.sql", "groupby23.sql",
-            "insert02.sql", "interval02.sql", "interval04.sql", "interval05.sql", "join01.sql",
+            "insert02.sql", "insert04.sql", "insert05.sql", "insert06.sql", "insert07.sql",
+            "insert11.sql", "insert12.sql", "interval02.sql", "interval04.sql",
+            "interval05.sql", "join01.sql",
             "join02.sql", "join03.sql", "join04.sql", "join06.sql", "join07.sql", "join08.sql",
             "join09.sql", "join10.sql", "join11.sql", "join12.sql", "join13.sql", "join14.sql",
             "join15.sql", "join16.sql", "join17.sql", "join18.sql", "join19.sql", "join20.sql",
             "join21.sql", "keywordasidentifier01.sql", "keywordasidentifier02.sql",
             "keywordasidentifier03.sql", "keywordasidentifier04.sql", "keywordasidentifier05.sql",
             "lexer02.sql", "lexer03.sql", "lexer04.sql", "lexer05.sql", "like01.sql", "merge01.sql",
-            "merge02.sql", "order_by01.sql", "order_by02.sql", "order_by03.sql", "order_by04.sql",
+            "merge02.sql", "merge03.sql", "merge04.sql", "object_access01.sql", "order_by01.sql",
+            "order_by02.sql",
+            "order_by03.sql", "order_by04.sql",
             "order_by05.sql", "order_by06.sql", "pivot01.sql", "pivot02.sql", "pivot03.sql",
             "pivot04.sql", "pivot05.sql", "pivot06.sql", "pivot07.sql", "pivot07_Parenthesis.sql",
             "pivot08.sql", "pivot09.sql", "pivot11.sql", "pivot12.sql", "query_factoring01.sql",
-            "query_factoring02.sql", "query_factoring03.sql", "query_factoring06.sql",
+            "query_factoring02.sql", "query_factoring03.sql", "query_factoring04.sql",
+            "query_factoring06.sql", "query_factoring14.sql",
             "query_factoring07.sql", "query_factoring08.sql", "query_factoring09.sql",
             "query_factoring11.sql", "query_factoring12.sql", "set01.sql", "set02.sql",
             "simple02.sql", "simple03.sql", "simple04.sql", "simple05.sql", "simple06.sql",
             "simple07.sql", "simple08.sql", "simple09.sql", "simple10.sql", "simple11.sql",
             "simple12.sql", "simple13.sql", "union01.sql", "union02.sql", "union03.sql",
             "union04.sql", "union05.sql", "union06.sql", "union07.sql", "union08.sql",
-            "union09.sql", "union10.sql", "xmltable02.sql");
+            "union09.sql", "union10.sql", "xmltable01.sql", "xmltable02.sql");
 
     @Test
     public void testAllSqlsParseDeparse() throws IOException {
@@ -115,10 +130,11 @@ public class SpecialOracleTest {
 
         boolean foundUnexpectedFailures = false;
 
+        assert sqlTestFiles != null;
         for (File file : sqlTestFiles) {
             if (file.isFile()) {
                 count++;
-                String sql = FileUtils.readFileToString(file, Charset.forName("UTF-8"));
+                String sql = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
                 try {
                     assertSqlCanBeParsedAndDeparsed(sql, true);
                     success++;
@@ -184,9 +200,10 @@ public class SpecialOracleTest {
             }
         });
 
+        assert sqlTestFiles != null;
         for (File file : sqlTestFiles) {
             if (file.isFile()) {
-                String sql = FileUtils.readFileToString(file, Charset.forName("UTF-8"));
+                String sql = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
                 assertSqlCanBeParsedAndDeparsed(sql, true);
             }
         }
@@ -194,7 +211,7 @@ public class SpecialOracleTest {
 
     public void recordSuccessOnSourceFile(File file) throws IOException {
         File sourceFile = new File(SQL_SOURCE_DIR, file.getName());
-        String sourceSql = FileUtils.readFileToString(sourceFile, Charset.forName("UTF-8"));
+        String sourceSql = FileUtils.readFileToString(sourceFile, StandardCharsets.UTF_8);
         if (!sourceSql.contains("@SUCCESSFULLY_PARSED_AND_DEPARSED")) {
             LOG.log(Level.INFO, "NEW SUCCESS: {0}", file.getName());
             if (sourceFile.exists() && sourceFile.canWrite()) {
@@ -216,10 +233,10 @@ public class SpecialOracleTest {
 
     public void recordFailureOnSourceFile(File file, String message) throws IOException {
         File sourceFile = new File(SQL_SOURCE_DIR, file.getName());
-        String sourceSql = FileUtils.readFileToString(sourceFile, Charset.forName("UTF-8"));
+        String sourceSql = FileUtils.readFileToString(sourceFile, StandardCharsets.UTF_8);
         if (!sourceSql.contains("@FAILURE: " + message) && sourceFile.canWrite()) {
             try (FileWriter writer = new FileWriter(sourceFile, true)) {
-                writer.append("\n--@FAILURE: " + message + " recorded first on ")
+                writer.append("\n--@FAILURE: ").append(message).append(" recorded first on ")
                         .append(DateFormat.getDateTimeInstance().format(new Date()));
             }
         }
@@ -230,8 +247,9 @@ public class SpecialOracleTest {
         File[] sqlTestFiles = new File(SQLS_DIR, "only-parse-test").listFiles();
 
         List<String> regressionFiles = new LinkedList<>();
+        assert sqlTestFiles != null;
         for (File file : sqlTestFiles) {
-            String sql = FileUtils.readFileToString(file, Charset.forName("UTF-8"));
+            String sql = FileUtils.readFileToString(file, StandardCharsets.UTF_8);
             try {
                 CCJSqlParserUtil.parse(sql);
                 LOG.log(Level.FINE, "EXPECTED SUCCESS: {0}", file.getName());

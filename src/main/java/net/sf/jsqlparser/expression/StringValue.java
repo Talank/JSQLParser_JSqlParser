@@ -20,11 +20,11 @@ import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
  */
 public final class StringValue extends ASTNodeAccessImpl implements Expression {
 
-    private String value = "";
-    private String prefix = null;
-
     public static final List<String> ALLOWED_PREFIXES =
             Arrays.asList("N", "U", "E", "R", "B", "RB", "_utf8", "Q");
+    private String value = "";
+    private String prefix = null;
+    private String quoteStr = "'";
 
     public StringValue() {
         // empty constructor
@@ -35,6 +35,11 @@ public final class StringValue extends ASTNodeAccessImpl implements Expression {
         if (escapedValue.length() >= 2 && escapedValue.startsWith("'")
                 && escapedValue.endsWith("'")) {
             value = escapedValue.substring(1, escapedValue.length() - 1);
+            return;
+        } else if (escapedValue.length() >= 4 && escapedValue.startsWith("$$")
+                && escapedValue.endsWith("$$")) {
+            value = escapedValue.substring(2, escapedValue.length() - 2);
+            quoteStr = "$$";
             return;
         }
 
@@ -57,8 +62,25 @@ public final class StringValue extends ASTNodeAccessImpl implements Expression {
         return value;
     }
 
+    public void setValue(String string) {
+        value = string;
+    }
+
     public String getPrefix() {
         return prefix;
+    }
+
+    public void setPrefix(String prefix) {
+        this.prefix = prefix;
+    }
+
+    public String getQuoteStr() {
+        return quoteStr;
+    }
+
+    public StringValue setQuoteStr(String quoteStr) {
+        this.quoteStr = quoteStr;
+        return this;
     }
 
     public String getNotExcapedValue() {
@@ -73,22 +95,14 @@ public final class StringValue extends ASTNodeAccessImpl implements Expression {
         return buffer.toString();
     }
 
-    public void setValue(String string) {
-        value = string;
-    }
-
-    public void setPrefix(String prefix) {
-        this.prefix = prefix;
-    }
-
     @Override
-    public void accept(ExpressionVisitor expressionVisitor) {
-        expressionVisitor.visit(this);
+    public <T, S> T accept(ExpressionVisitor<T> expressionVisitor, S context) {
+        return expressionVisitor.visit(this, context);
     }
 
     @Override
     public String toString() {
-        return (prefix != null ? prefix : "") + "'" + value + "'";
+        return (prefix != null ? prefix : "") + quoteStr + value + quoteStr;
     }
 
     public StringValue withPrefix(String prefix) {

@@ -13,7 +13,7 @@ import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.parser.CCJSqlParserDefaultVisitor;
 import net.sf.jsqlparser.parser.CCJSqlParserTreeConstants;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import net.sf.jsqlparser.parser.SimpleNode;
+import net.sf.jsqlparser.parser.Node;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.create.view.CreateView;
@@ -33,11 +33,11 @@ public class CreateViewDeParserTest {
     public void testUseExtrnalExpressionDeparser() throws JSQLParserException {
         StringBuilder b = new StringBuilder();
         SelectDeParser selectDeParser = new SelectDeParser();
-        selectDeParser.setBuffer(b);
+        selectDeParser.setBuilder(b);
         ExpressionDeParser expressionDeParser = new ExpressionDeParser(selectDeParser, b) {
 
             @Override
-            public void visit(Column tableColumn) {
+            public <K> StringBuilder visit(Column tableColumn, K parameters) {
                 final Table table = tableColumn.getTable();
                 String tableName = null;
                 if (table != null) {
@@ -48,30 +48,31 @@ public class CreateViewDeParserTest {
                     }
                 }
                 if (tableName != null && !tableName.isEmpty()) {
-                    getBuffer().append("\"").append(tableName).append("\"").append(".");
+                    getBuilder().append("\"").append(tableName).append("\"").append(".");
                 }
 
-                getBuffer().append("\"").append(tableColumn.getColumnName()).append("\"");
+                getBuilder().append("\"").append(tableColumn.getColumnName()).append("\"");
+                return builder;
             }
         };
 
         selectDeParser.setExpressionVisitor(expressionDeParser);
 
         CreateViewDeParser instance = new CreateViewDeParser(b, selectDeParser);
-        CreateView vc = (CreateView) CCJSqlParserUtil.
-                parse("CREATE VIEW test AS SELECT a, b FROM mytable");
+        CreateView vc =
+                (CreateView) CCJSqlParserUtil.parse("CREATE VIEW test AS SELECT a, b FROM mytable");
         instance.deParse(vc);
 
         assertEquals("CREATE VIEW test AS SELECT a, b FROM mytable", vc.toString());
-        assertEquals("CREATE VIEW test AS SELECT \"a\", \"b\" FROM mytable", instance.getBuffer().
-                toString());
+        assertEquals("CREATE VIEW test AS SELECT \"a\", \"b\" FROM mytable",
+                instance.getBuilder().toString());
     }
 
     @Test
     public void testCreateViewASTNode() throws JSQLParserException {
         String sql = "CREATE VIEW test AS SELECT a, b FROM mytable";
         final StringBuilder b = new StringBuilder(sql);
-        SimpleNode node = (SimpleNode) CCJSqlParserUtil.parseAST(sql);
+        Node node = (Node) CCJSqlParserUtil.parseAST(sql);
         node.dump("*");
         assertEquals(CCJSqlParserTreeConstants.JJTSTATEMENT, node.getId());
 
@@ -79,7 +80,7 @@ public class CreateViewDeParserTest {
             int idxDelta = 0;
 
             @Override
-            public Object visit(SimpleNode node, Object data) {
+            public Object visit(Node node, Object data) {
                 if (CCJSqlParserTreeConstants.JJTCOLUMN == node.getId()) {
                     b.insert(node.jjtGetFirstToken().beginColumn - 1 + idxDelta, '"');
                     idxDelta++;

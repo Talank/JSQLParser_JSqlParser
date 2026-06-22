@@ -13,6 +13,7 @@ import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.OracleHint;
 import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.OutputClause;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.StatementVisitor;
 import net.sf.jsqlparser.statement.select.FromItem;
@@ -25,10 +26,11 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class Merge implements Statement {
 
-    private List<WithItem> withItemsList;
+    private List<WithItem<?>> withItemsList;
     private Table table;
     private OracleHint oracleHint = null;
     private FromItem fromItem;
@@ -36,29 +38,65 @@ public class Merge implements Statement {
     private MergeInsert mergeInsert;
     private MergeUpdate mergeUpdate;
     private boolean insertFirst = false;
+    private List<MergeOperation> operations;
 
-    public List<WithItem> getWithItemsList() {
+    private OutputClause outputClause;
+
+    private void deriveOperationsFromStandardClauses() {
+        List<MergeOperation> operations = new ArrayList<>();
+        if (insertFirst) {
+            Optional.ofNullable(mergeInsert).ifPresent(operations::add);
+            Optional.ofNullable(mergeUpdate).ifPresent(operations::add);
+        } else {
+            Optional.ofNullable(mergeUpdate).ifPresent(operations::add);
+            Optional.ofNullable(mergeInsert).ifPresent(operations::add);
+        }
+        this.operations = operations;
+    }
+
+    private void deriveStandardClausesFromOperations() {
+        List<MergeOperation> applicableOperations =
+                Optional.ofNullable(operations).orElse(Collections.emptyList()).stream()
+                        .filter(o -> o instanceof MergeUpdate || o instanceof MergeInsert)
+                        .collect(Collectors.toList());
+        mergeUpdate = applicableOperations.stream()
+                .filter(o -> o instanceof MergeUpdate)
+                .map(MergeUpdate.class::cast)
+                .findFirst()
+                .orElse(null);
+        mergeInsert = applicableOperations.stream()
+                .filter(o -> o instanceof MergeInsert)
+                .map(MergeInsert.class::cast)
+                .findFirst()
+                .orElse(null);
+        insertFirst = applicableOperations.stream()
+                .findFirst()
+                .map(o -> o instanceof MergeInsert)
+                .orElse(false);
+    }
+
+    public List<WithItem<?>> getWithItemsList() {
         return withItemsList;
     }
 
-    public void setWithItemsList(List<WithItem> withItemsList) {
+    public void setWithItemsList(List<WithItem<?>> withItemsList) {
         this.withItemsList = withItemsList;
     }
 
-    public Merge withWithItemsList(List<WithItem> withItemsList) {
+    public Merge withWithItemsList(List<WithItem<?>> withItemsList) {
         this.setWithItemsList(withItemsList);
         return this;
     }
 
-    public Merge addWithItemsList(WithItem... withItemsList) {
-        List<WithItem> collection =
+    public Merge addWithItemsList(WithItem<?>... withItemsList) {
+        List<WithItem<?>> collection =
                 Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
         Collections.addAll(collection, withItemsList);
         return this.withWithItemsList(collection);
     }
 
-    public Merge addWithItemsList(Collection<? extends WithItem> withItemsList) {
-        List<WithItem> collection =
+    public Merge addWithItemsList(Collection<? extends WithItem<?>> withItemsList) {
+        List<WithItem<?>> collection =
                 Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
         collection.addAll(withItemsList);
         return this.withWithItemsList(collection);
@@ -126,12 +164,22 @@ public class Merge implements Statement {
         this.onCondition = onCondition;
     }
 
+    public List<MergeOperation> getOperations() {
+        return operations;
+    }
+
+    public void setOperations(List<MergeOperation> operations) {
+        this.operations = operations;
+        deriveStandardClausesFromOperations();
+    }
+
     public MergeInsert getMergeInsert() {
         return mergeInsert;
     }
 
-    public void setMergeInsert(MergeInsert insert) {
-        this.mergeInsert = insert;
+    public void setMergeInsert(MergeInsert mergeInsert) {
+        this.mergeInsert = mergeInsert;
+        deriveOperationsFromStandardClauses();
     }
 
     public MergeUpdate getMergeUpdate() {
@@ -140,11 +188,12 @@ public class Merge implements Statement {
 
     public void setMergeUpdate(MergeUpdate mergeUpdate) {
         this.mergeUpdate = mergeUpdate;
+        deriveOperationsFromStandardClauses();
     }
 
     @Override
-    public void accept(StatementVisitor statementVisitor) {
-        statementVisitor.visit(this);
+    public <T, S> T accept(StatementVisitor<T> statementVisitor, S context) {
+        return statementVisitor.visit(this, context);
     }
 
     public boolean isInsertFirst() {
@@ -153,6 +202,16 @@ public class Merge implements Statement {
 
     public void setInsertFirst(boolean insertFirst) {
         this.insertFirst = insertFirst;
+        deriveOperationsFromStandardClauses();
+    }
+
+    public OutputClause getOutputClause() {
+        return outputClause;
+    }
+
+    public Merge setOutputClause(OutputClause outputClause) {
+        this.outputClause = outputClause;
+        return this;
     }
 
     @Override
@@ -161,8 +220,8 @@ public class Merge implements Statement {
         StringBuilder b = new StringBuilder();
         if (withItemsList != null && !withItemsList.isEmpty()) {
             b.append("WITH ");
-            for (Iterator<WithItem> iter = withItemsList.iterator(); iter.hasNext();) {
-                WithItem withItem = iter.next();
+            for (Iterator<WithItem<?>> iter = withItemsList.iterator(); iter.hasNext();) {
+                WithItem<?> withItem = iter.next();
                 b.append(withItem);
                 if (iter.hasNext()) {
                     b.append(",");
@@ -170,24 +229,23 @@ public class Merge implements Statement {
                 b.append(" ");
             }
         }
-        b.append("MERGE INTO ");
+        b.append("MERGE ");
+        if (oracleHint != null) {
+            b.append(oracleHint).append(" ");
+        }
+        b.append("INTO ");
         b.append(table);
         b.append(" USING ");
         b.append(fromItem);
-        b.append(" ON (");
+        b.append(" ON ");
         b.append(onCondition);
-        b.append(")");
 
-        if (insertFirst && mergeInsert != null) {
-            b.append(mergeInsert);
+        if (operations != null && !operations.isEmpty()) {
+            operations.forEach(b::append);
         }
 
-        if (mergeUpdate != null) {
-            b.append(mergeUpdate);
-        }
-
-        if (!insertFirst && mergeInsert != null) {
-            b.append(mergeInsert);
+        if (outputClause != null) {
+            b.append(outputClause);
         }
 
         return b.toString();

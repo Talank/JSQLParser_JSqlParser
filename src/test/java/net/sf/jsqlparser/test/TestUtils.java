@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.MySQLIndexHint;
 import net.sf.jsqlparser.expression.OracleHint;
 import net.sf.jsqlparser.parser.CCJSqlParser;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
@@ -58,7 +59,7 @@ public class TestUtils {
 
     // Assure SPACE around Syntax Characters
     private static final Pattern SQL_SANITATION_PATTERN2 =
-            Pattern.compile("\\s*([!/,()=+\\-*|\\]<>:])\\s*", Pattern.MULTILINE);
+            Pattern.compile("\\s*([!/,()=+\\-*|\\]<>:\\[\\]\\{\\}])\\s*", Pattern.MULTILINE);
 
     /**
      * @param statement
@@ -67,7 +68,7 @@ public class TestUtils {
      */
     public static Statement assertSqlCanBeParsedAndDeparsed(String statement)
             throws JSQLParserException {
-        return assertSqlCanBeParsedAndDeparsed(statement, false);
+        return assertSqlCanBeParsedAndDeparsed(statement, true);
     }
 
     /**
@@ -108,7 +109,8 @@ public class TestUtils {
         String sanitizedInputSqlStr = buildSqlString(parsed.toString(), laxDeparsingCheck);
         String sanitizedStatementStr = buildSqlString(statement, laxDeparsingCheck);
 
-        assertEquals(sanitizedStatementStr, sanitizedInputSqlStr);
+        assertEquals(sanitizedStatementStr, sanitizedInputSqlStr,
+                "Output from toString() does not match.");
 
         // Export all the Test SQLs to /tmp/net/sf/jsqlparser
         boolean exportToFile = Boolean.parseBoolean(System.getenv("EXPORT_TEST_TO_FILE"));
@@ -121,7 +123,8 @@ public class TestUtils {
 
         String sanitizedDeparsedStr = buildSqlString(builder.toString(), laxDeparsingCheck);
 
-        assertEquals(sanitizedStatementStr, sanitizedDeparsedStr);
+        assertEquals(sanitizedStatementStr, sanitizedDeparsedStr,
+                "Output from Deparser does not match.");
     }
 
     private static void writeTestToFile(String sanitizedInputSqlStr) {
@@ -309,7 +312,7 @@ public class TestUtils {
         StatementDeParser deParser = new StatementDeParser(new StringBuilder());
         stmt.accept(deParser);
         assertEquals(buildSqlString(statement, laxDeparsingCheck),
-                buildSqlString(deParser.getBuffer().toString(), laxDeparsingCheck));
+                buildSqlString(deParser.getBuilder().toString(), laxDeparsingCheck));
     }
 
     public static String buildSqlString(final String originalSql, boolean laxDeparsingCheck) {
@@ -325,12 +328,18 @@ public class TestUtils {
 
             sanitizedSqlStr = sanitizedSqlStr.trim().toLowerCase();
 
+            if (laxDeparsingCheck && sanitizedSqlStr.endsWith(";")) {
+                sanitizedSqlStr = sanitizedSqlStr.substring(0, sanitizedSqlStr.length() - 1).trim();
+            }
+
             // Rewrite statement separators "/" and "GO"
             if (sanitizedSqlStr.endsWith("/")) {
-                sanitizedSqlStr = sanitizedSqlStr.substring(0, sanitizedSqlStr.length() - 1) + ";";
+                sanitizedSqlStr = sanitizedSqlStr.substring(0, sanitizedSqlStr.length() - 1);
             } else if (sanitizedSqlStr.endsWith("go")) {
-                sanitizedSqlStr = sanitizedSqlStr.substring(0, sanitizedSqlStr.length() - 2) + ";";
+                sanitizedSqlStr = sanitizedSqlStr.substring(0, sanitizedSqlStr.length() - 2);
             }
+
+
 
             return sanitizedSqlStr;
 
@@ -350,10 +359,10 @@ public class TestUtils {
     public static void assertExpressionCanBeDeparsedAs(final Expression parsed, String expression) {
         ExpressionDeParser expressionDeParser = new ExpressionDeParser();
         StringBuilder stringBuilder = new StringBuilder();
-        expressionDeParser.setBuffer(stringBuilder);
+        expressionDeParser.setBuilder(stringBuilder);
         SelectDeParser selectDeParser = new SelectDeParser(expressionDeParser, stringBuilder);
         expressionDeParser.setSelectVisitor(selectDeParser);
-        parsed.accept(expressionDeParser);
+        parsed.accept(expressionDeParser, null);
 
         assertEquals(expression, stringBuilder.toString());
     }
@@ -407,5 +416,21 @@ public class TestUtils {
             assertNotNull(hint);
             assertEquals(hints[0], hint.getValue());
         }
+    }
+
+    public static void assertUpdateMysqlHintExists(String sql, boolean assertDeparser,
+            String action, String qualifier, String... indexNames)
+            throws JSQLParserException {
+        if (assertDeparser) {
+            assertSqlCanBeParsedAndDeparsed(sql, true);
+        }
+        Statement statement = CCJSqlParserUtil.parse(sql);
+        assertInstanceOf(Update.class, statement);
+        Update updateStmt = (Update) statement;
+        final MySQLIndexHint indexHint = updateStmt.getTable().getIndexHint();
+        assertNotNull(indexHint);
+        assertEquals(indexHint.getAction(), action);
+        assertEquals(indexHint.getIndexQualifier(), qualifier);
+        assertArrayEquals(indexHint.getIndexNames().toArray(), indexNames);
     }
 }

@@ -9,34 +9,65 @@
  */
 package net.sf.jsqlparser.statement;
 
-import net.sf.jsqlparser.statement.select.Select;
-
 import java.io.Serializable;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.stream.Collectors;
+import net.sf.jsqlparser.schema.Table;
 
 /**
  * An {@code EXPLAIN} statement
  */
 public class ExplainStatement implements Statement {
-
-    private Select select;
+    private String keyword;
+    private Statement statement;
     private LinkedHashMap<OptionType, Option> options;
+    private Table table;
+
+    public ExplainStatement(String keyword) {
+        this.keyword = keyword;
+    }
 
     public ExplainStatement() {
-        // empty constructor
+        this("EXPLAIN");
     }
 
-    public ExplainStatement(Select select) {
-        this.select = select;
+    public ExplainStatement(String keyword, Table table) {
+        this.keyword = keyword;
+        this.table = table;
     }
 
-    public Select getStatement() {
-        return select;
+    public ExplainStatement(String keyword, Statement statement, List<Option> optionList) {
+        this.keyword = keyword;
+        setStatement(statement);
+
+        initializeOptions(optionList);
     }
 
-    public void setStatement(Select select) {
-        this.select = select;
+    public ExplainStatement(Statement statement) {
+        this("EXPLAIN", statement, null);
+    }
+
+    public Table getTable() {
+        return table;
+    }
+
+    public ExplainStatement setTable(Table table) {
+        this.table = table;
+        if (table != null) {
+            this.statement = null;
+        }
+        return this;
+    }
+
+    public Statement getStatement() {
+        return statement;
+    }
+
+    public ExplainStatement setStatement(Statement statement) {
+        this.table = null;
+        this.statement = statement;
+        return this;
     }
 
     public LinkedHashMap<OptionType, Option> getOptions() {
@@ -53,8 +84,10 @@ public class ExplainStatement implements Statement {
 
     /**
      * Returns the first option that matches this optionType
+     *
      * @param optionType the option type to retrieve an Option for
-     * @return an option of that type, or null. In case of duplicate options, the first found option will be returned.
+     * @return an option of that type, or null. In case of duplicate options, the first found option
+     *         will be returned.
      */
     public Option getOption(OptionType optionType) {
         if (options == null) {
@@ -63,30 +96,56 @@ public class ExplainStatement implements Statement {
         return options.get(optionType);
     }
 
-    @Override
-    public String toString() {
-        StringBuilder statementBuilder = new StringBuilder("EXPLAIN");
-        if (options != null) {
-            statementBuilder.append(" ");
-            statementBuilder.append(options.values().stream().map(Option::formatOption).collect(Collectors.joining(" ")));
-        }
+    public String getKeyword() {
+        return keyword;
+    }
 
-        statementBuilder.append(" ");
-        statementBuilder.append(select.toString());
-        return statementBuilder.toString();
+    public ExplainStatement setKeyword(String keyword) {
+        this.keyword = keyword;
+        return this;
     }
 
     @Override
-    public void accept(StatementVisitor statementVisitor) {
-        statementVisitor.visit(this);
+    public String toString() {
+        StringBuilder builder = new StringBuilder(keyword);
+        if (table != null) {
+            builder.append(" ").append(table);
+        } else {
+            if (options != null) {
+                builder.append(" ");
+                builder.append(options.values().stream().map(Option::formatOption)
+                        .collect(Collectors.joining(" ")));
+            }
+
+            builder.append(" ");
+            if (statement != null) {
+                builder.append(statement);
+            }
+        }
+
+        return builder.toString();
+    }
+
+    @Override
+    public <T, S> T accept(StatementVisitor<T> statementVisitor, S context) {
+        return statementVisitor.visit(this, context);
+    }
+
+    private void initializeOptions(List<Option> optionList) {
+        if (optionList != null && !optionList.isEmpty()) {
+            options = new LinkedHashMap<>();
+            for (Option o : optionList) {
+                options.put(o.getType(), o);
+            }
+        }
     }
 
     public enum OptionType {
-        ANALYZE,
-        VERBOSE,
-        COSTS,
-        BUFFERS,
-        FORMAT
+        ANALYZE, VERBOSE, COSTS, BUFFERS, FORMAT, PLAN, PLAN_FOR;
+
+        public static OptionType from(String type) {
+            return Enum.valueOf(OptionType.class, type.toUpperCase());
+        }
     }
 
     public static class Option implements Serializable {
@@ -111,9 +170,9 @@ public class ExplainStatement implements Statement {
         }
 
         public String formatOption() {
-            return type.name() + ( value != null 
-                                                        ? " " + value 
-                                                        : "" );
+            return type.name().replace("_", " ") + (value != null
+                    ? " " + value
+                    : "");
         }
 
         public Option withValue(String value) {

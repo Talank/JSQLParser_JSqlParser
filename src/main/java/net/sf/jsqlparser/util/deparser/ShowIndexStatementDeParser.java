@@ -12,19 +12,18 @@ package net.sf.jsqlparser.util.deparser;
 import net.sf.jsqlparser.statement.show.ShowIndexStatement;
 
 /**
-*
-* @author Jayant Kumar Yadav
-*/
+ * @author Jayant Kumar Yadav
+ */
 
 public class ShowIndexStatementDeParser extends AbstractDeParser<ShowIndexStatement> {
-    
+
     public ShowIndexStatementDeParser(StringBuilder buffer) {
         super(buffer);
     }
 
     @Override
     public void deParse(ShowIndexStatement show) {
-        buffer.append("SHOW INDEX FROM ").append(show.getTableName());
+        builder.append("SHOW INDEX FROM ").append(show.getTableName());
     }
-    
+
 }

@@ -9,24 +9,25 @@
  */
 package net.sf.jsqlparser.statement.select;
 
-import net.sf.jsqlparser.expression.Expression;
-
 import java.io.Serializable;
+
+import net.sf.jsqlparser.expression.Expression;
 
 public class OrderByElement implements Serializable {
 
-    public enum NullOrdering {
-        NULLS_FIRST,
-        NULLS_LAST
-    }
-
     private Expression expression;
+    // postgres rollup is an ExpressionList
+    private boolean mysqlWithRollup = false;
     private boolean asc = true;
     private boolean ascDescPresent = false;
     private NullOrdering nullOrdering;
 
     public boolean isAsc() {
         return asc;
+    }
+
+    public void setAsc(boolean asc) {
+        this.asc = asc;
     }
 
     public NullOrdering getNullOrdering() {
@@ -37,20 +38,16 @@ public class OrderByElement implements Serializable {
         this.nullOrdering = nullOrdering;
     }
 
-    public void setAsc(boolean asc) {
-        this.asc = asc;
+    public boolean isAscDescPresent() {
+        return ascDescPresent;
     }
 
     public void setAscDescPresent(boolean ascDescPresent) {
         this.ascDescPresent = ascDescPresent;
     }
 
-    public boolean isAscDescPresent() {
-        return ascDescPresent;
-    }
-
-    public void accept(OrderByVisitor orderByVisitor) {
-        orderByVisitor.visit(this);
+    public <T, S> T accept(OrderByVisitor<T> orderByVisitor, S context) {
+        return orderByVisitor.visit(this, context);
     }
 
     public Expression getExpression() {
@@ -75,6 +72,9 @@ public class OrderByElement implements Serializable {
         if (nullOrdering != null) {
             b.append(' ');
             b.append(nullOrdering == NullOrdering.NULLS_FIRST ? "NULLS FIRST" : "NULLS LAST");
+        }
+        if (isMysqlWithRollup()) {
+            b.append(" WITH ROLLUP");
         }
         return b.toString();
     }
@@ -101,6 +101,23 @@ public class OrderByElement implements Serializable {
 
     public <E extends Expression> E getExpression(Class<E> type) {
         return type.cast(getExpression());
+    }
+
+    public boolean isMysqlWithRollup() {
+        return mysqlWithRollup;
+    }
+
+    public OrderByElement setMysqlWithRollup(boolean mysqlWithRollup) {
+        this.mysqlWithRollup = mysqlWithRollup;
+        return this;
+    }
+
+    public enum NullOrdering {
+        NULLS_FIRST, NULLS_LAST;
+
+        public static NullOrdering from(String ordering) {
+            return Enum.valueOf(NullOrdering.class, ordering.toUpperCase());
+        }
     }
 
 }

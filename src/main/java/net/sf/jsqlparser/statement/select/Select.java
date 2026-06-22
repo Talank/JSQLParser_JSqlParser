@@ -9,27 +9,41 @@
  */
 package net.sf.jsqlparser.statement.select;
 
-import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.expression.ExpressionVisitor;
-import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
-import net.sf.jsqlparser.statement.Statement;
-import net.sf.jsqlparser.statement.StatementVisitor;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import net.sf.jsqlparser.expression.Alias;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.ExpressionVisitor;
+import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.StatementVisitor;
 
-public abstract class Select extends ASTNodeAccessImpl implements Statement, Expression {
-    List<WithItem> withItemsList;
+public abstract class Select extends ASTNodeAccessImpl implements Statement, Expression, FromItem {
+    protected List<Table> forUpdateTables = null;
+    protected List<WithItem<?>> withItemsList;
+    Limit limitBy;
     Limit limit;
     Offset offset;
     Fetch fetch;
     WithIsolation isolation;
     boolean oracleSiblings = false;
+
+    ForClause forClause = null;
+
     List<OrderByElement> orderByElements;
+    ForMode forMode = null;
+    private boolean skipLocked;
+    private Wait wait;
+    private boolean noWait = false;
+    private boolean forUpdateBeforeOrderBy = false;
+    Alias alias;
+    Pivot pivot;
+    UnPivot unPivot;
 
     public static String orderByToString(List<OrderByElement> orderByElements) {
         return orderByToString(false, orderByElements);
@@ -48,8 +62,8 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
             boolean useBrackets) {
         String sql = getStringList(list, useComma, useBrackets);
 
-        if (sql.length() > 0) {
-            if (expression.length() > 0) {
+        if (!sql.isEmpty()) {
+            if (!expression.isEmpty()) {
                 sql = " " + expression + " " + sql;
             } else {
                 sql = " " + sql;
@@ -65,9 +79,9 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
      * <p>
      * The same as getStringList(list, true, false)
      *
-     * @see #getStringList(List, boolean, boolean)
      * @param list list of objects with toString methods
      * @return comma separated list of the elements in the list
+     * @see #getStringList(List, boolean, boolean)
      */
     public static String getStringList(List<?> list) {
         return getStringList(list, true, false);
@@ -116,27 +130,27 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
         return builder;
     }
 
-    public List<WithItem> getWithItemsList() {
+    public List<WithItem<?>> getWithItemsList() {
         return withItemsList;
     }
 
-    public void setWithItemsList(List<WithItem> withItemsList) {
+    public void setWithItemsList(List<WithItem<?>> withItemsList) {
         this.withItemsList = withItemsList;
     }
 
-    public Select withWithItemsList(List<WithItem> withItemsList) {
+    public Select withWithItemsList(List<WithItem<?>> withItemsList) {
         this.setWithItemsList(withItemsList);
         return this;
     }
 
-    public Select addWithItemsList(Collection<? extends WithItem> withItemsList) {
-        List<WithItem> collection =
+    public Select addWithItemsList(Collection<? extends WithItem<?>> withItemsList) {
+        List<WithItem<?>> collection =
                 Optional.ofNullable(getWithItemsList()).orElseGet(ArrayList::new);
         collection.addAll(withItemsList);
         return this.withWithItemsList(collection);
     }
 
-    public Select addWithItemsList(WithItem... withItemsList) {
+    public Select addWithItemsList(WithItem<?>... withItemsList) {
         return addWithItemsList(Arrays.asList(withItemsList));
     }
 
@@ -148,8 +162,25 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
         this.oracleSiblings = oracleSiblings;
     }
 
+    public boolean isNoWait() {
+        return this.noWait;
+    }
+
+    public void setNoWait(boolean noWait) {
+        this.noWait = noWait;
+    }
+
     public Select withOracleSiblings(boolean oracleSiblings) {
         this.setOracleSiblings(oracleSiblings);
+        return this;
+    }
+
+    public ForClause getForClause() {
+        return forClause;
+    }
+
+    public Select setForClause(ForClause forClause) {
+        this.forClause = forClause;
         return this;
     }
 
@@ -174,7 +205,18 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
     }
 
     public Select addOrderByElements(OrderByElement... orderByElements) {
-        return addOrderByElements(Arrays.asList(orderByElements));
+        return this.addOrderByElements(Arrays.asList(orderByElements));
+    }
+
+    public Select addOrderByExpressions(Collection<Expression> orderByExpressions) {
+        for (Expression e : orderByExpressions) {
+            addOrderByElements(new OrderByElement().withExpression(e));
+        }
+        return this;
+    }
+
+    public Select addOrderByElements(Expression... orderByExpressions) {
+        return addOrderByExpressions(Arrays.asList(orderByExpressions));
     }
 
     public Limit getLimit() {
@@ -188,6 +230,19 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
     public Select withLimit(Limit limit) {
         this.setLimit(limit);
         return this;
+    }
+
+    public Limit getLimitBy() {
+        return limitBy;
+    }
+
+    public void setLimitBy(Limit limitBy) {
+        this.limitBy = limitBy;
+    }
+
+    public <E extends Select> E withLimitBy(Class<E> type, Limit limitBy) {
+        this.setLimitBy(limitBy);
+        return type.cast(this);
     }
 
     public Offset getOffset() {
@@ -229,12 +284,170 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
         return this;
     }
 
-    public abstract StringBuilder appendSelectBodyTo(StringBuilder builder);
+    public ForMode getForMode() {
+        return this.forMode;
+    }
 
+    public void setForMode(ForMode forMode) {
+        this.forMode = forMode;
+    }
+
+    /**
+     * Returns the first table from the {@code FOR UPDATE OF} clause, or {@code null} if no table
+     * was specified. Use {@link #getForUpdateTables()} to retrieve all tables.
+     *
+     * @return the first table, or {@code null}
+     */
+    public Table getForUpdateTable() {
+        return (forUpdateTables != null && !forUpdateTables.isEmpty()) ? forUpdateTables.get(0)
+                : null;
+    }
+
+    /**
+     * Sets a single table for the {@code FOR UPDATE OF} clause.
+     *
+     * @param forUpdateTable the table, or {@code null} to clear
+     */
+    public void setForUpdateTable(Table forUpdateTable) {
+        if (forUpdateTable == null) {
+            this.forUpdateTables = null;
+        } else {
+            this.forUpdateTables = new ArrayList<>();
+            this.forUpdateTables.add(forUpdateTable);
+        }
+    }
+
+    /**
+     * Returns the list of tables named in the {@code FOR UPDATE OF t1, t2, ...} clause, or
+     * {@code null} if no OF clause was present.
+     *
+     * @return list of tables, or {@code null}
+     */
+    public List<Table> getForUpdateTables() {
+        return forUpdateTables;
+    }
+
+    /**
+     * Sets the list of tables for the {@code FOR UPDATE OF t1, t2, ...} clause.
+     *
+     * @param forUpdateTables list of tables
+     */
+    public void setForUpdateTables(List<Table> forUpdateTables) {
+        this.forUpdateTables = forUpdateTables;
+    }
+
+    public Select withForUpdateTables(List<Table> forUpdateTables) {
+        this.setForUpdateTables(forUpdateTables);
+        return this;
+    }
+
+    /**
+     * Builds and returns a {@link ForUpdateClause} representing the current FOR UPDATE / FOR SHARE
+     * state of this SELECT, or {@code null} if no FOR clause is present.
+     *
+     * @return a {@link ForUpdateClause} view, or {@code null}
+     */
+    public ForUpdateClause getForUpdate() {
+        if (forMode == null) {
+            return null;
+        }
+        ForUpdateClause clause = new ForUpdateClause();
+        clause.setMode(forMode);
+        clause.setTables(forUpdateTables);
+        clause.setWait(wait);
+        clause.setNoWait(noWait);
+        clause.setSkipLocked(skipLocked);
+        return clause;
+    }
+
+    /**
+     * Returns {@code true} when the {@code FOR UPDATE} clause appears before the {@code ORDER BY}
+     * clause in the original SQL (non-standard ordering supported by some databases).
+     *
+     * @return {@code true} if FOR UPDATE precedes ORDER BY
+     */
+    public boolean isForUpdateBeforeOrderBy() {
+        return forUpdateBeforeOrderBy;
+    }
+
+    /**
+     * Indicates whether the {@code FOR UPDATE} clause precedes the {@code ORDER BY} clause in the
+     * SQL output.
+     *
+     * @param forUpdateBeforeOrderBy {@code true} to emit FOR UPDATE before ORDER BY
+     */
+    public void setForUpdateBeforeOrderBy(boolean forUpdateBeforeOrderBy) {
+        this.forUpdateBeforeOrderBy = forUpdateBeforeOrderBy;
+    }
+
+    /**
+     * Returns the value of the {@link Wait} set for this SELECT
+     *
+     * @return the value of the {@link Wait} set for this SELECT
+     */
+    public Wait getWait() {
+        return wait;
+    }
+
+    /**
+     * Sets the {@link Wait} for this SELECT
+     *
+     * @param wait the {@link Wait} for this SELECT
+     */
+    public void setWait(final Wait wait) {
+        this.wait = wait;
+    }
+
+    public boolean isSkipLocked() {
+        return skipLocked;
+    }
+
+    public void setSkipLocked(boolean skipLocked) {
+        this.skipLocked = skipLocked;
+    }
+
+    @Override
+    public Alias getAlias() {
+        return alias;
+    }
+
+    @Override
+    public void setAlias(Alias alias) {
+        this.alias = alias;
+    }
+
+    public Select withAlias(Alias alias) {
+        this.setAlias(alias);
+        return this;
+    }
+
+    @Override
+    public Pivot getPivot() {
+        return pivot;
+    }
+
+    @Override
+    public void setPivot(Pivot pivot) {
+        this.pivot = pivot;
+    }
+
+    public UnPivot getUnPivot() {
+        return unPivot;
+    }
+
+    public void setUnPivot(UnPivot unPivot) {
+        this.unPivot = unPivot;
+    }
+
+    public StringBuilder appendSelectBodyTo(StringBuilder builder) {
+        return builder;
+    };
+
+    @SuppressWarnings({"PMD.CyclomaticComplexity"})
     public StringBuilder appendTo(StringBuilder builder) {
         if (withItemsList != null && !withItemsList.isEmpty()) {
             builder.append("WITH ");
-            for (Iterator<WithItem> iter = withItemsList.iterator(); iter.hasNext();) {
+            for (Iterator<WithItem<?>> iter = withItemsList.iterator(); iter.hasNext();) {
                 WithItem withItem = iter.next();
                 builder.append(withItem);
                 if (iter.hasNext()) {
@@ -246,8 +459,19 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
 
         appendSelectBodyTo(builder);
 
-        builder.append(orderByToString(oracleSiblings, orderByElements));
+        appendTo(builder, alias, null, pivot, unPivot);
 
+        if (!forUpdateBeforeOrderBy) {
+            builder.append(orderByToString(oracleSiblings, orderByElements));
+        }
+
+        if (forClause != null) {
+            forClause.appendTo(builder);
+        }
+
+        if (limitBy != null) {
+            builder.append(limitBy);
+        }
         if (limit != null) {
             builder.append(limit);
         }
@@ -260,6 +484,35 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
         if (isolation != null) {
             builder.append(isolation);
         }
+        if (forMode != null) {
+            builder.append(" FOR ");
+            builder.append(forMode.getValue());
+
+            if (forUpdateTables != null && !forUpdateTables.isEmpty()) {
+                builder.append(" OF ");
+                for (int i = 0; i < forUpdateTables.size(); i++) {
+                    if (i > 0) {
+                        builder.append(", ");
+                    }
+                    builder.append(forUpdateTables.get(i));
+                }
+            }
+
+            if (wait != null) {
+                // Wait's toString will do the formatting for us
+                builder.append(wait);
+            }
+
+            if (isNoWait()) {
+                builder.append(" NOWAIT");
+            } else if (isSkipLocked()) {
+                builder.append(" SKIP LOCKED");
+            }
+        }
+
+        if (forUpdateBeforeOrderBy) {
+            builder.append(orderByToString(oracleSiblings, orderByElements));
+        }
 
         return builder;
     }
@@ -269,15 +522,15 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
         return appendTo(new StringBuilder()).toString();
     }
 
-    public abstract void accept(SelectVisitor selectVisitor);
+    public abstract <T, S> T accept(SelectVisitor<T> selectVisitor, S context);
 
-    public void accept(StatementVisitor statementVisitor) {
-        statementVisitor.visit(this);
+    public <T, S> T accept(StatementVisitor<T> statementVisitor, S context) {
+        return statementVisitor.visit(this, context);
     }
 
     @Override
-    public void accept(ExpressionVisitor expressionVisitor) {
-        expressionVisitor.visit(this);
+    public <T, S> T accept(ExpressionVisitor<T> expressionVisitor, S context) {
+        return expressionVisitor.visit(this, context);
     }
 
     @Deprecated
@@ -285,8 +538,39 @@ public abstract class Select extends ASTNodeAccessImpl implements Statement, Exp
         return this;
     }
 
-    @Deprecated
-    public <E extends Select> E getSelectBody(Class<E> type) {
+    public Values getValues() {
+        return (Values) this;
+    }
+
+    public PlainSelect getPlainSelect() {
+        return (PlainSelect) this;
+    }
+
+    public SetOperationList getSetOperationList() {
+        return (SetOperationList) this;
+    }
+
+    public <E extends Select> E as(Class<E> type) {
         return type.cast(this);
+    }
+
+    public Select withForMode(ForMode forMode) {
+        this.setForMode(forMode);
+        return this;
+    }
+
+    public Select withForUpdateTable(Table forUpdateTable) {
+        this.setForUpdateTable(forUpdateTable);
+        return this;
+    }
+
+    public Select withSkipLocked(boolean skipLocked) {
+        this.setSkipLocked(skipLocked);
+        return this;
+    }
+
+    public Select withWait(Wait wait) {
+        this.setWait(wait);
+        return this;
     }
 }

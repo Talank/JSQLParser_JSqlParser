@@ -9,15 +9,15 @@
  */
 package net.sf.jsqlparser.util.validation.feature;
 
-import net.sf.jsqlparser.parser.feature.Feature;
-
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Set;
 
+import net.sf.jsqlparser.parser.feature.Feature;
+
 /**
  * Please add Features supported and place a link to public documentation
- * 
+ *
  * @author gitmotte
  * @see <a href=
  *      "https://dev.mysql.com/doc/refman/8.0/en/">https://dev.mysql.com/doc/refman/8.0/en/</a>
@@ -33,11 +33,13 @@ public enum MySqlVersion implements Version {
                     // https://dev.mysql.com/doc/refman/8.0/en/select.html
                     Feature.select,
                     Feature.selectGroupBy, Feature.selectHaving,
-                    Feature.limit, Feature.limitOffset, Feature.offset, Feature.offsetParam, Feature.orderBy,
+                    Feature.limit, Feature.limitOffset, Feature.offset, Feature.offsetParam,
+                    Feature.orderBy,
                     Feature.selectForUpdate,
                     Feature.selectForUpdateOfTable,
                     Feature.selectForUpdateNoWait,
                     Feature.selectForUpdateSkipLocked,
+                    Feature.selectForShare,
                     Feature.distinct,
 
                     Feature.setOperation,
@@ -51,7 +53,8 @@ public enum MySqlVersion implements Version {
                     Feature.function,
 
                     // https://dev.mysql.com/doc/refman/8.0/en/join.html
-                    Feature.join, Feature.joinSimple, Feature.joinLeft, Feature.joinRight, Feature.joinOuter,
+                    Feature.join, Feature.joinSimple, Feature.joinLeft, Feature.joinRight,
+                    Feature.joinOuter,
                     Feature.joinNatural, Feature.joinInner, Feature.joinCross, Feature.joinStraight,
                     Feature.joinUsingColumns,
 
@@ -59,6 +62,7 @@ public enum MySqlVersion implements Version {
                     Feature.insert,
                     Feature.insertValues,
                     Feature.values,
+                    Feature.tableStatement,
                     Feature.insertFromSelect, Feature.insertUseSet, Feature.insertModifierPriority,
                     Feature.insertModifierIgnore, Feature.insertUseDuplicateKeyUpdate,
 
@@ -99,9 +103,11 @@ public enum MySqlVersion implements Version {
                     Feature.createSchema,
                     // https://dev.mysql.com/doc/refman/8.0/en/create-view.html
                     Feature.createView,
+                    Feature.createViewWithComment,
                     Feature.createOrReplaceView,
                     // https://dev.mysql.com/doc/refman/8.0/en/create-table.html
-                    Feature.createTable, Feature.createTableCreateOptionStrings, Feature.createTableTableOptionStrings,
+                    Feature.createTable, Feature.createTableCreateOptionStrings,
+                    Feature.createTableTableOptionStrings,
                     Feature.createTableFromSelect, Feature.createTableIfNotExists,
                     // https://dev.mysql.com/doc/refman/8.0/en/create-index.html
                     Feature.createIndex,
@@ -110,6 +116,7 @@ public enum MySqlVersion implements Version {
 
                     // https://dev.mysql.com/doc/refman/8.0/en/describe.html
                     Feature.describe,
+                    Feature.desc,
                     // https://dev.mysql.com/doc/refman/8.0/en/explain.html
                     Feature.explain,
                     // https://dev.mysql.com/doc/refman/8.0/en/show.html

@@ -44,7 +44,7 @@ import net.sf.jsqlparser.statement.drop.Drop;
 import net.sf.jsqlparser.statement.execute.Execute;
 import net.sf.jsqlparser.statement.grant.Grant;
 import net.sf.jsqlparser.statement.merge.Merge;
-import net.sf.jsqlparser.statement.replace.Replace;
+import net.sf.jsqlparser.statement.refresh.RefreshMaterializedViewStatement;
 import net.sf.jsqlparser.statement.select.Fetch;
 import net.sf.jsqlparser.statement.select.First;
 import net.sf.jsqlparser.statement.select.KSQLWindow;
@@ -53,7 +53,6 @@ import net.sf.jsqlparser.statement.select.Offset;
 import net.sf.jsqlparser.statement.select.OptimizeFor;
 import net.sf.jsqlparser.statement.select.Pivot;
 import net.sf.jsqlparser.statement.select.PivotXml;
-import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.Skip;
 import net.sf.jsqlparser.statement.select.TableFunction;
 import net.sf.jsqlparser.statement.select.Top;
@@ -111,7 +110,7 @@ public enum Feature {
     limitOffset,
     /**
      * "OFFSET offset"
-     * 
+     *
      * @see Offset
      */
     offset,
@@ -128,7 +127,7 @@ public enum Feature {
     fetch,
     /**
      * "FETCH FIRST row_count (ROW | ROWS) ONLY"
-     * 
+     *
      * @see Fetch#isFetchParamFirst()
      */
     fetchFirst,
@@ -245,6 +244,22 @@ public enum Feature {
      * "FOR UPDATE"
      */
     selectForUpdate,
+
+    /**
+     * "FOR SHARE"
+     */
+    selectForShare,
+
+    /**
+     * "FOR KEY SHARE"
+     */
+    selectForKeyShare,
+
+    /**
+     * "NO KEY UPDATE"
+     */
+    selectForNoKeyUpdate,
+
     /**
      * "FOR UPDATE OF table"
      */
@@ -294,7 +309,7 @@ public enum Feature {
     /**
      * "RETURNING expr(, expr)*"
      *
-     * @see SelectExpressionItem
+     * @see net.sf.jsqlparser.expression.operators.relational.ExpressionList
      */
     insertReturningExpressionList,
 
@@ -306,6 +321,11 @@ public enum Feature {
      * @see net.sf.jsqlparser.statement.select.Values
      */
     values,
+
+    /**
+     * SQL "TABLE table_name [ORDER BY column_name] [LIMIT number [OFFSET number]]“
+     */
+    tableStatement,
 
     /**
      * SQL "UPDATE" statement is allowed
@@ -328,7 +348,7 @@ public enum Feature {
     /**
      * "RETURNING expr(, expr)*"
      *
-     * @see SelectExpressionItem
+     * @see net.sf.jsqlparser.statement.select.SelectItem
      */
     updateReturning,
     /**
@@ -356,7 +376,7 @@ public enum Feature {
     /**
      * "RETURNING expr(, expr)*"
      *
-     * @see SelectExpressionItem
+     * @see net.sf.jsqlparser.statement.select.SelectItem
      */
     deleteReturningExpressionList,
 
@@ -393,6 +413,14 @@ public enum Feature {
      * @see AlterView
      */
     alterView,
+
+    /**
+     * SQL "REFRESH MATERIALIZED VIEW" statement is allowed
+     *
+     * @see RefreshMaterializedViewStatement
+     */
+    refreshMaterializedView, refreshMaterializedWithDataView, refreshMaterializedWithNoDataView,
+
     /**
      * SQL "REPLACE VIEW" statement is allowed
      *
@@ -437,8 +465,6 @@ public enum Feature {
     executeUsing,
     /**
      * SQL "REPLACE" statement is allowed
-     *
-     * @see Replace
      */
     @Deprecated
     replace,
@@ -477,6 +503,12 @@ public enum Feature {
      * SQL "CREATE MATERIALIZED VIEW" statement is allowed
      */
     createViewMaterialized,
+
+    /**
+     * SQL "CREATE VIEW(x comment 'x', y comment 'y') comment 'view'" statement is allowed
+     */
+    createViewWithComment,
+
     /**
      * SQL "CREATE TABLE" statement is allowed
      *
@@ -560,6 +592,14 @@ public enum Feature {
      * @see DescribeStatement
      */
     describe,
+
+    /**
+     * SQL "DESC" statement is allowed
+     *
+     * @see DescribeStatement
+     */
+    desc,
+
     /**
      * SQL "EXPLAIN" statement is allowed
      *
@@ -646,7 +686,7 @@ public enum Feature {
 
     lateralSubSelect,
     /**
-     * @see ValuesList
+     * @see net.sf.jsqlparser.statement.select.Values
      */
     valuesList,
     /**
@@ -741,12 +781,48 @@ public enum Feature {
      */
     allowUnsupportedStatements(false),
 
-    timeOut(6000),
+    timeOut(8000),
 
     /**
      * allows Backslash '\' as Escape Character
      */
-    allowBackslashEscapeCharacter(false),;
+    allowBackslashEscapeCharacter(false),
+
+    /**
+     * allows sub selects without parentheses, e.g. `select * from dual where 1 = select 1`
+     */
+    allowUnparenthesizedSubSelects(false),
+
+    /**
+     * maximum nesting depth for trying complex parsing, can bet set to -1 to ignore
+     */
+    allowedNestingDepth(10),
+
+    dialect(null),
+
+    /**
+     * "IMPORT"
+     */
+    imprt,
+
+    /**
+     * "EXPORT"
+     */
+    export,
+
+    /**
+     * MySQL allows a ',' as a separator between key and value entries. We allow that by default,
+     * but it can be disabled here
+     */
+    allowCommaAsKeyValueSeparator(true),
+
+    /**
+     * DB2 and Oracle allow Expressions as JSON_OBJECT key values. This clashes with Informix and
+     * Snowflake Json-Extraction syntax
+     */
+    allowExpressionAsJsonObjectKey(false)
+
+    ;
 
     private final Object value;
     private final boolean configurable;

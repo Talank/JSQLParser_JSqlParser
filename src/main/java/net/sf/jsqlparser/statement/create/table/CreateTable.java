@@ -42,8 +42,8 @@ public class CreateTable implements Statement {
     private SpannerInterleaveIn interleaveIn = null;
 
     @Override
-    public void accept(StatementVisitor statementVisitor) {
-        statementVisitor.visit(this);
+    public <T, S> T accept(StatementVisitor<T> statementVisitor, S context) {
+        return statementVisitor.visit(this, context);
     }
 
     public Table getTable() {
@@ -78,11 +78,12 @@ public class CreateTable implements Statement {
     }
 
     public void setColumns(List<String> columns) {
-        this.columns =columns;
+        this.columns = columns;
     }
 
     /**
-     * @return a list of options (as simple strings) of this table definition, as ("TYPE", "=", "MYISAM")
+     * @return a list of options (as simple strings) of this table definition, as ("TYPE", "=",
+     *         "MYISAM")
      */
     public List<String> getTableOptionsStrings() {
         return tableOptionsStrings;
@@ -102,8 +103,8 @@ public class CreateTable implements Statement {
 
     /**
      * @return a list of {@link Index}es (for example "PRIMARY KEY") of this table.<br>
-     * Indexes created with column definitions (as in mycol INT PRIMARY KEY) are not inserted into
-     * this list.
+     *         Indexes created with column definitions (as in mycol INT PRIMARY KEY) are not
+     *         inserted into this list.
      */
     public List<Index> getIndexes() {
         return indexes;
@@ -166,46 +167,84 @@ public class CreateTable implements Statement {
     @Override
     @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.NPathComplexity"})
     public String toString() {
-        String sql;
+        StringBuilder b = new StringBuilder();
+        appendCreateClause(b);
+        appendColumnDefinitions(b);
+        appendTableOptions(b);
+        appendTableProperties(b);
+        return b.toString();
+    }
+
+    private void appendCreateClause(StringBuilder b) {
         String createOps = PlainSelect.getStringList(createOptionsStrings, false, false);
 
-        sql = "CREATE " + (unlogged ? "UNLOGGED " : "")
-                + (!"".equals(createOps) ? createOps + " " : "")
-                + (orReplace ? "OR REPLACE " : "")
-                + "TABLE " + (ifNotExists ? "IF NOT EXISTS " : "") + table;
+        b.append("CREATE ");
+        if (unlogged) {
+            b.append("UNLOGGED ");
+        }
+        if (!"".equals(createOps)) {
+            b.append(createOps).append(" ");
+        }
+        if (orReplace) {
+            b.append("OR REPLACE ");
+        }
+        b.append("TABLE ");
+        if (ifNotExists) {
+            b.append("IF NOT EXISTS ");
+        }
+        b.append(table);
+    }
 
+    private void appendColumnDefinitions(StringBuilder b) {
         if (columns != null && !columns.isEmpty()) {
-            sql += " ";
-            sql += PlainSelect.getStringList(columns, true, true);
+            b.append(" ");
+            b.append(PlainSelect.getStringList(columns, true, true));
         }
         if (columnDefinitions != null && !columnDefinitions.isEmpty()) {
-            sql += " (";
-
-            sql += PlainSelect.getStringList(columnDefinitions, true, false);
+            b.append(" (");
+            b.append(PlainSelect.getStringList(columnDefinitions, true, false));
             if (indexes != null && !indexes.isEmpty()) {
-                sql += ", ";
-                sql += PlainSelect.getStringList(indexes);
+                b.append(", ");
+                b.append(PlainSelect.getStringList(indexes));
             }
-            sql += ")";
+            b.append(")");
         }
+    }
+
+    private void appendTableOptions(StringBuilder b) {
         String options = PlainSelect.getStringList(tableOptionsStrings, false, false);
         if (options != null && options.length() > 0) {
-            sql += " " + options;
+            b.append(" ").append(options);
         }
+    }
 
+    private void appendTableProperties(StringBuilder b) {
         if (rowMovement != null) {
-            sql += " " + rowMovement.getMode().toString() + " ROW MOVEMENT";
+            b.append(" ").append(rowMovement.getMode()).append(" ROW MOVEMENT");
         }
         if (select != null) {
-            sql += " AS " + (selectParenthesis ? "(" : "") + select.toString() + (selectParenthesis ? ")" : "");
+            b.append(" AS ");
+            if (selectParenthesis) {
+                b.append("(");
+            }
+            b.append(select);
+            if (selectParenthesis) {
+                b.append(")");
+            }
         }
         if (likeTable != null) {
-            sql += " LIKE " + (selectParenthesis ? "(" : "") + likeTable.toString() + (selectParenthesis ? ")" : "");
+            b.append(" LIKE ");
+            if (selectParenthesis) {
+                b.append("(");
+            }
+            b.append(likeTable);
+            if (selectParenthesis) {
+                b.append(")");
+            }
         }
         if (interleaveIn != null) {
-            sql += ", " + interleaveIn;
+            b.append(", ").append(interleaveIn);
         }
-        return sql;
     }
 
     public CreateTable withTable(Table table) {
@@ -259,25 +298,30 @@ public class CreateTable implements Statement {
     }
 
     public CreateTable addCreateOptionsStrings(String... createOptionsStrings) {
-        List<String> collection = Optional.ofNullable(getCreateOptionsStrings()).orElseGet(ArrayList::new);
+        List<String> collection =
+                Optional.ofNullable(getCreateOptionsStrings()).orElseGet(ArrayList::new);
         Collections.addAll(collection, createOptionsStrings);
         return this.withCreateOptionsStrings(collection);
     }
 
     public CreateTable addCreateOptionsStrings(Collection<String> createOptionsStrings) {
-        List<String> collection = Optional.ofNullable(getCreateOptionsStrings()).orElseGet(ArrayList::new);
+        List<String> collection =
+                Optional.ofNullable(getCreateOptionsStrings()).orElseGet(ArrayList::new);
         collection.addAll(createOptionsStrings);
         return this.withCreateOptionsStrings(collection);
     }
 
     public CreateTable addColumnDefinitions(ColumnDefinition... columnDefinitions) {
-        List<ColumnDefinition> collection = Optional.ofNullable(getColumnDefinitions()).orElseGet(ArrayList::new);
+        List<ColumnDefinition> collection =
+                Optional.ofNullable(getColumnDefinitions()).orElseGet(ArrayList::new);
         Collections.addAll(collection, columnDefinitions);
         return this.withColumnDefinitions(collection);
     }
 
-    public CreateTable addColumnDefinitions(Collection<? extends ColumnDefinition> columnDefinitions) {
-        List<ColumnDefinition> collection = Optional.ofNullable(getColumnDefinitions()).orElseGet(ArrayList::new);
+    public CreateTable addColumnDefinitions(
+            Collection<? extends ColumnDefinition> columnDefinitions) {
+        List<ColumnDefinition> collection =
+                Optional.ofNullable(getColumnDefinitions()).orElseGet(ArrayList::new);
         collection.addAll(columnDefinitions);
         return this.withColumnDefinitions(collection);
     }

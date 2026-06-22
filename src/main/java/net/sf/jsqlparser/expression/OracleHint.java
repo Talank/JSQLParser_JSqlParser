@@ -24,13 +24,24 @@ public class OracleHint extends ASTNodeAccessImpl implements Expression {
 
     private static final Pattern SINGLE_LINE = Pattern.compile("--\\+ *([^ ].*[^ ])");
     private static final Pattern MULTI_LINE =
-            Pattern.compile("\\/\\*\\+ *([^ ].*[^ ]) *\\*+\\/", Pattern.MULTILINE | Pattern.DOTALL);
+            Pattern.compile("/\\*\\+ *([^ ].*[^ ]) *\\*+/", Pattern.MULTILINE | Pattern.DOTALL);
 
     private String value;
     private boolean singleLine = false;
 
     public static boolean isHintMatch(String comment) {
         return SINGLE_LINE.matcher(comment).find() || MULTI_LINE.matcher(comment).find();
+    }
+
+    public static OracleHint getHintFromSelectBody(Select selectBody) {
+
+        if (selectBody instanceof PlainSelect) {
+            return ((PlainSelect) selectBody).getOracleHint();
+        } else if (selectBody instanceof ParenthesedSelect) {
+            return getHintFromSelectBody(((ParenthesedSelect) selectBody).getSelect());
+        } else {
+            return null;
+        }
     }
 
     public final void setComment(String comment) {
@@ -65,8 +76,8 @@ public class OracleHint extends ASTNodeAccessImpl implements Expression {
     }
 
     @Override
-    public void accept(ExpressionVisitor visitor) {
-        visitor.visit(this);
+    public <T, S> T accept(ExpressionVisitor<T> expressionVisitor, S context) {
+        return expressionVisitor.visit(this, context);
     }
 
     @Override
@@ -86,16 +97,5 @@ public class OracleHint extends ASTNodeAccessImpl implements Expression {
     public OracleHint withSingleLine(boolean singleLine) {
         this.setSingleLine(singleLine);
         return this;
-    }
-
-    public static OracleHint getHintFromSelectBody(Select selectBody) {
-
-        if (selectBody instanceof PlainSelect) {
-            return ((PlainSelect) selectBody).getOracleHint();
-        } else if (selectBody instanceof ParenthesedSelect) {
-            return getHintFromSelectBody(((ParenthesedSelect) selectBody).getSelect());
-        } else {
-            return null;
-        }
     }
 }

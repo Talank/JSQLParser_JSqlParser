@@ -20,8 +20,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
+@SuppressWarnings({"PMD.CyclomaticComplexity"})
 public class Join extends ASTNodeAccessImpl {
 
+    private final LinkedList<Expression> onExpressions = new LinkedList<>();
+    private final LinkedList<Column> usingColumns = new LinkedList<>();
     private boolean outer = false;
     private boolean right = false;
     private boolean left = false;
@@ -32,15 +35,22 @@ public class Join extends ASTNodeAccessImpl {
     private boolean simple = false;
     private boolean cross = false;
     private boolean semi = false;
+    private boolean any = false;
+    private boolean all = false;
     private boolean straight = false;
     private boolean apply = false;
-    private FromItem rightItem;
-    private final LinkedList<Expression> onExpressions = new LinkedList<>();
-    private final LinkedList<Column> usingColumns = new LinkedList<>();
+    private boolean fetch = false;
+    private FromItem fromItem;
     private KSQLJoinWindow joinWindow;
+
+    private JoinHint joinHint = null;
 
     public boolean isSimple() {
         return simple;
+    }
+
+    public void setSimple(boolean b) {
+        simple = b;
     }
 
     public Join withSimple(boolean b) {
@@ -48,12 +58,43 @@ public class Join extends ASTNodeAccessImpl {
         return this;
     }
 
-    public void setSimple(boolean b) {
-        simple = b;
+    /**
+     * A JOIN means INNER when the INNER keyword is set or when no other qualifier has been set.
+     *
+     * @return Tells, if a JOIN means a qualified INNER JOIN.
+     */
+    public boolean isInnerJoin() {
+        return inner
+                || !(
+                /* Qualified Joins */
+                left || right || full || outer
+
+                /* Cross Join */
+                        || cross
+
+                        /* Natural Join */
+                        || natural);
     }
 
+    /**
+     * @return Tells, if the INNER keyword has been set.
+     */
     public boolean isInner() {
         return inner;
+    }
+
+    /**
+     * Sets the INNER keyword and switches off any contradicting qualifiers automatically.
+     */
+    public void setInner(boolean b) {
+        if (b) {
+            left = false;
+            right = false;
+            outer = false;
+            cross = false;
+            natural = false;
+        }
+        inner = b;
     }
 
     public Join withInner(boolean b) {
@@ -61,21 +102,17 @@ public class Join extends ASTNodeAccessImpl {
         return this;
     }
 
-    public void setInner(boolean b) {
-        inner = b;
-    }
-
     public boolean isStraight() {
         return straight;
+    }
+
+    public void setStraight(boolean b) {
+        straight = b;
     }
 
     public Join withStraight(boolean b) {
         this.setStraight(b);
         return this;
-    }
-
-    public void setStraight(boolean b) {
-        straight = b;
     }
 
     /**
@@ -87,17 +124,27 @@ public class Join extends ASTNodeAccessImpl {
         return outer;
     }
 
+    /**
+     * Sets the OUTER keyword and switches off any contradicting qualifiers automatically.
+     */
+    public void setOuter(boolean b) {
+        if (b) {
+            inner = false;
+        }
+        outer = b;
+    }
+
     public Join withOuter(boolean b) {
         this.setOuter(b);
         return this;
     }
 
-    public void setOuter(boolean b) {
-        outer = b;
-    }
-
     public boolean isApply() {
         return apply;
+    }
+
+    public void setApply(boolean apply) {
+        this.apply = apply;
     }
 
     public Join withApply(boolean apply) {
@@ -105,8 +152,22 @@ public class Join extends ASTNodeAccessImpl {
         return this;
     }
 
-    public void setApply(boolean apply) {
-        this.apply = apply;
+    /**
+     * Whether is a "FETCH" join (JPQL/HQL)
+     *
+     * @return true if is a "FETCH" join
+     */
+    public boolean isFetch() {
+        return fetch;
+    }
+
+    public void setFetch(boolean b) {
+        fetch = b;
+    }
+
+    public Join withFetch(boolean b) {
+        this.setFetch(b);
+        return this;
     }
 
     /**
@@ -118,13 +179,55 @@ public class Join extends ASTNodeAccessImpl {
         return semi;
     }
 
+    public void setSemi(boolean b) {
+        semi = b;
+    }
+
     public Join withSemi(boolean b) {
         this.setSemi(b);
         return this;
     }
 
-    public void setSemi(boolean b) {
-        semi = b;
+    /**
+     * Whether is an "ANY" join
+     *
+     * @return true if is an "ANY" join
+     */
+    public boolean isAny() {
+        return any;
+    }
+
+    public void setAny(boolean b) {
+        if (b) {
+            all = false;
+        }
+        any = b;
+    }
+
+    public Join withAny(boolean b) {
+        this.setAny(b);
+        return this;
+    }
+
+    /**
+     * Whether is an "ALL" join
+     *
+     * @return true if is an "ALL" join
+     */
+    public boolean isAll() {
+        return all;
+    }
+
+    public void setAll(boolean b) {
+        if (b) {
+            any = false;
+        }
+        all = b;
+    }
+
+    public Join withAll(boolean b) {
+        this.setAll(b);
+        return this;
     }
 
     /**
@@ -136,13 +239,20 @@ public class Join extends ASTNodeAccessImpl {
         return left;
     }
 
+    /**
+     * Sets the LEFT keyword and switches off any contradicting qualifiers automatically.
+     */
+    public void setLeft(boolean b) {
+        if (b) {
+            inner = false;
+            right = false;
+        }
+        left = b;
+    }
+
     public Join withLeft(boolean b) {
         this.setLeft(b);
         return this;
-    }
-
-    public void setLeft(boolean b) {
-        left = b;
     }
 
     /**
@@ -154,13 +264,20 @@ public class Join extends ASTNodeAccessImpl {
         return right;
     }
 
+    /**
+     * Sets the RIGHT keyword and switches off any contradicting qualifiers automatically.
+     */
+    public void setRight(boolean b) {
+        if (b) {
+            inner = false;
+            left = false;
+        }
+        right = b;
+    }
+
     public Join withRight(boolean b) {
         this.setRight(b);
         return this;
-    }
-
-    public void setRight(boolean b) {
-        right = b;
     }
 
     /**
@@ -172,21 +289,21 @@ public class Join extends ASTNodeAccessImpl {
         return natural;
     }
 
+    public void setNatural(boolean b) {
+        natural = b;
+    }
+
     public boolean isGlobal() {
         return global;
+    }
+
+    public void setGlobal(boolean b) {
+        global = b;
     }
 
     public Join withNatural(boolean b) {
         this.setNatural(b);
         return this;
-    }
-
-    public void setNatural(boolean b) {
-        natural = b;
-    }
-
-    public void setGlobal(boolean b) {
-        global = b;
     }
 
     /**
@@ -198,17 +315,21 @@ public class Join extends ASTNodeAccessImpl {
         return full;
     }
 
+    public void setFull(boolean b) {
+        full = b;
+    }
+
     public Join withFull(boolean b) {
         this.setFull(b);
         return this;
     }
 
-    public void setFull(boolean b) {
-        full = b;
-    }
-
     public boolean isCross() {
         return cross;
+    }
+
+    public void setCross(boolean cross) {
+        this.cross = cross;
     }
 
     public Join withCross(boolean cross) {
@@ -216,24 +337,32 @@ public class Join extends ASTNodeAccessImpl {
         return this;
     }
 
-    public void setCross(boolean cross) {
-        this.cross = cross;
-    }
-
     /**
      * Returns the right item of the join
      */
+    @Deprecated
     public FromItem getRightItem() {
-        return rightItem;
+        return fromItem;
     }
 
+    @Deprecated
+    public void setRightItem(FromItem item) {
+        fromItem = item;
+    }
+
+    @Deprecated
     public Join withRightItem(FromItem item) {
-        this.setRightItem(item);
+        this.setFromItem(item);
         return this;
     }
 
-    public void setRightItem(FromItem item) {
-        rightItem = item;
+    public FromItem getFromItem() {
+        return fromItem;
+    }
+
+    public Join setFromItem(FromItem fromItem) {
+        this.fromItem = fromItem;
+        return this;
     }
 
     /**
@@ -244,8 +373,19 @@ public class Join extends ASTNodeAccessImpl {
         return onExpressions.get(0);
     }
 
+    @Deprecated
+    public void setOnExpression(Expression expression) {
+        onExpressions.add(0, expression);
+    }
+
     public Collection<Expression> getOnExpressions() {
         return onExpressions;
+    }
+
+    public Join setOnExpressions(Collection<Expression> expressions) {
+        onExpressions.clear();
+        onExpressions.addAll(expressions);
+        return this;
     }
 
     @Deprecated
@@ -254,19 +394,8 @@ public class Join extends ASTNodeAccessImpl {
         return this;
     }
 
-    @Deprecated
-    public void setOnExpression(Expression expression) {
-        onExpressions.add(0, expression);
-    }
-
     public Join addOnExpression(Expression expression) {
         onExpressions.add(expression);
-        return this;
-    }
-
-    public Join setOnExpressions(Collection<Expression> expressions) {
-        onExpressions.clear();
-        onExpressions.addAll(expressions);
         return this;
     }
 
@@ -277,14 +406,14 @@ public class Join extends ASTNodeAccessImpl {
         return usingColumns;
     }
 
-    public Join withUsingColumns(List<Column> list) {
-        this.setUsingColumns(list);
-        return this;
-    }
-
     public void setUsingColumns(List<Column> list) {
         usingColumns.clear();
         usingColumns.addAll(list);
+    }
+
+    public Join withUsingColumns(List<Column> list) {
+        this.setUsingColumns(list);
+        return this;
     }
 
     public boolean isWindowJoin() {
@@ -293,11 +422,15 @@ public class Join extends ASTNodeAccessImpl {
 
     /**
      * Return the "WITHIN" join window (if any)
-     * 
+     *
      * @return
      */
     public KSQLJoinWindow getJoinWindow() {
         return joinWindow;
+    }
+
+    public void setJoinWindow(KSQLJoinWindow joinWindow) {
+        this.joinWindow = joinWindow;
     }
 
     public Join withJoinWindow(KSQLJoinWindow joinWindow) {
@@ -305,8 +438,13 @@ public class Join extends ASTNodeAccessImpl {
         return this;
     }
 
-    public void setJoinWindow(KSQLJoinWindow joinWindow) {
-        this.joinWindow = joinWindow;
+    public JoinHint getJoinHint() {
+        return joinHint;
+    }
+
+    public Join setJoinHint(JoinHint joinHint) {
+        this.joinHint = joinHint;
+        return this;
     }
 
     @Override
@@ -319,12 +457,18 @@ public class Join extends ASTNodeAccessImpl {
         }
 
         if (isSimple() && isOuter()) {
-            builder.append("OUTER ").append(rightItem);
+            builder.append("OUTER ").append(fromItem);
         } else if (isSimple()) {
-            builder.append(rightItem);
+            builder.append(fromItem);
         } else {
             if (isNatural()) {
                 builder.append("NATURAL ");
+            }
+
+            if (isAny()) {
+                builder.append("ANY ");
+            } else if (isAll()) {
+                builder.append("ALL ");
             }
 
             if (isRight()) {
@@ -350,16 +494,22 @@ public class Join extends ASTNodeAccessImpl {
             } else if (isApply()) {
                 builder.append("APPLY ");
             } else {
+                if (joinHint != null) {
+                    builder.append(joinHint).append(" ");
+                }
                 builder.append("JOIN ");
+                if (fetch) {
+                    builder.append("FETCH ");
+                }
             }
 
-            builder.append(rightItem).append((joinWindow != null) ? " WITHIN " + joinWindow : "");
+            builder.append(fromItem).append((joinWindow != null) ? " WITHIN " + joinWindow : "");
         }
 
         for (Expression onExpression : onExpressions) {
             builder.append(" ON ").append(onExpression);
         }
-        if (usingColumns.size() > 0) {
+        if (!usingColumns.isEmpty()) {
             builder.append(PlainSelect.getFormattedList(usingColumns, "USING", true, true));
         }
 

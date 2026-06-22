@@ -1,12 +1,89 @@
+/*-
+ * #%L
+ * JSQLParser library
+ * %%
+ * Copyright (C) 2004 - 2023 JSQLParser
+ * %%
+ * Dual licensed under GNU LGPL 2.1 or Apache License 2.0
+ * #L%
+ */
 package net.sf.jsqlparser.statement.select;
 
 import net.sf.jsqlparser.expression.Alias;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.ParenthesedStatement;
+import net.sf.jsqlparser.statement.StatementVisitor;
 
-public class ParenthesedSelect extends Select implements FromItem {
+import java.util.Collection;
+import java.util.List;
+
+public class ParenthesedSelect extends Select implements FromItem, ParenthesedStatement {
     Alias alias;
     Pivot pivot;
     UnPivot unPivot;
     Select select;
+    SampleClause sampleClause = null;
+
+    public ParenthesedSelect() {}
+
+    public ParenthesedSelect(FromItem fromItem) {
+        this.select = new PlainSelect(fromItem);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(FromItem fromItem, Expression whereExpressions) {
+        this.select = new PlainSelect(fromItem, whereExpressions);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(FromItem fromItem, Collection<Expression> orderByExpressions) {
+        this.select = new PlainSelect(fromItem, orderByExpressions);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(FromItem fromItem, Expression whereExpressions,
+            Collection<Expression> orderByExpressions) {
+        this.select = new PlainSelect(fromItem, whereExpressions, orderByExpressions);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(Collection<Expression> selectExpressions, FromItem fromItem) {
+        this.select = new PlainSelect(selectExpressions, fromItem);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(Collection<Expression> selectExpressions, FromItem fromItem,
+            Expression whereExpressions) {
+        this.select = new PlainSelect(selectExpressions, fromItem, whereExpressions);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(Collection<Expression> selectExpressions, FromItem fromItem,
+            Collection<Expression> orderByExpressions) {
+        this.select = new PlainSelect(selectExpressions, fromItem, orderByExpressions);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    public ParenthesedSelect(Collection<Expression> selectExpressions, FromItem fromItem,
+            Expression whereExpressions, Collection<Expression> orderByExpressions) {
+        this.select =
+                new PlainSelect(selectExpressions, fromItem, whereExpressions, orderByExpressions);
+        this.alias = getAliasFromItem(fromItem);
+    }
+
+    private static Alias getAliasFromItem(FromItem fromItem) {
+        if (fromItem instanceof Table && fromItem.getAlias() == null) {
+            Table t = (Table) fromItem;
+            return new Alias(t.getName(), true);
+        } else if (fromItem instanceof TableFunction && fromItem.getAlias() == null) {
+            TableFunction t = (TableFunction) fromItem;
+            return new Alias(t.getName(), true);
+        } else {
+            return fromItem.getAlias() != null ? new Alias(fromItem.getAlias().getName(), true)
+                    : null;
+        }
+    }
 
     @Override
     public Alias getAlias() {
@@ -41,6 +118,22 @@ public class ParenthesedSelect extends Select implements FromItem {
         this.unPivot = unPivot;
     }
 
+    @Override
+    public SampleClause getSampleClause() {
+        return sampleClause;
+    }
+
+    @Override
+    public FromItem setSampleClause(SampleClause sampleClause) {
+        this.sampleClause = sampleClause;
+        return this;
+    }
+
+    public ParenthesedSelect withSampleClause(SampleClause sampleClause) {
+        this.sampleClause = sampleClause;
+        return this;
+    }
+
     public Select getSelect() {
         return select;
     }
@@ -49,33 +142,46 @@ public class ParenthesedSelect extends Select implements FromItem {
         this.select = select;
     }
 
+    public Values getValues() {
+        return (Values) select;
+    }
+
+    public PlainSelect getPlainSelect() {
+        return (PlainSelect) select;
+    }
+
+    public SetOperationList getSetOperationList() {
+        return (SetOperationList) select;
+    }
+
     public ParenthesedSelect withSelect(Select selectBody) {
         setSelect(selectBody);
         return this;
     }
 
-    @Override
-    public void accept(SelectVisitor selectVisitor) {
-        selectVisitor.visit(this);
+    public ParenthesedSelect withOrderByElements(List<OrderByElement> orderByElements) {
+        this.select.setOrderByElements(orderByElements);
+        return this;
     }
 
     @Override
-    public void accept(FromItemVisitor fromItemVisitor) {
-        fromItemVisitor.visit(this);
+    public <T, S> T accept(SelectVisitor<T> selectVisitor, S context) {
+        return selectVisitor.visit(this, context);
+    }
+
+    @Override
+    public <T, S> T accept(FromItemVisitor<T> fromItemVisitor, S context) {
+        return fromItemVisitor.visit(this, context);
+    }
+
+    @Override
+    public <T, S> T accept(StatementVisitor<T> statementVisitor, S context) {
+        return statementVisitor.visit(this, context);
     }
 
     public StringBuilder appendSelectBodyTo(StringBuilder builder) {
         builder.append("(").append(select).append(")");
-        if (alias != null) {
-            builder.append(alias);
-        }
-
-        if (pivot != null) {
-            builder.append(" ").append(pivot);
-        }
-        if (unPivot != null) {
-            builder.append(" ").append(unPivot);
-        }
+        appendTo(builder, alias, sampleClause, pivot, unPivot);
         return builder;
     }
 }

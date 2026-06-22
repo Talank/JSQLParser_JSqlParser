@@ -20,8 +20,6 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectVisitorAdapter;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-
 import static net.sf.jsqlparser.test.TestUtils.assertDeparse;
 import static net.sf.jsqlparser.test.TestUtils.assertEqualsObjectTree;
 import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
@@ -47,22 +45,26 @@ public class MySqlSqlCalcFoundRowsTest {
 
         Statement parsed = assertSqlCanBeParsedAndDeparsed(sqlCalcFoundRowsContainingSql);
         assertSqlCanBeParsedAndDeparsed(generalSql);
-        Select created = new PlainSelect().addSelectItems(Arrays.asList(new AllColumns()))
+        Select created = new PlainSelect().addSelectItem(new AllColumns())
                 .withMySqlSqlCalcFoundRows(true).withFromItem(new Table("TABLE"));
         assertDeparse(created, sqlCalcFoundRowsContainingSql);
         assertEqualsObjectTree(parsed, created);
     }
 
     private void accept(Statement statement, final MySqlSqlCalcFoundRowRef ref) {
-        statement.accept(new StatementVisitorAdapter() {
+        SelectVisitorAdapter<Void> selectVisitorAdapter = new SelectVisitorAdapter<>() {
             @Override
-            public void visit(Select select) {
-                select.accept(new SelectVisitorAdapter() {
-                    @Override
-                    public void visit(PlainSelect plainSelect) {
-                        ref.sqlCalcFoundRows = plainSelect.getMySqlSqlCalcFoundRows();
-                    }
-                });
+            public <S> Void visit(PlainSelect plainSelect, S parameters) {
+                ref.sqlCalcFoundRows = plainSelect.getMySqlSqlCalcFoundRows();
+                return null;
+            }
+        };
+
+        statement.accept(new StatementVisitorAdapter<Void>() {
+            @Override
+            public <S> Void visit(Select select, S context) {
+                select.accept(selectVisitorAdapter, context);
+                return null;
             }
 
         });

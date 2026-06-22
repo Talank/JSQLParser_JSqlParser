@@ -28,9 +28,25 @@ public class CreateSchemaTest {
     }
 
     @Test
+    public void testCreateSchemaWithcatalog() throws JSQLParserException {
+        String statement = "CREATE SCHEMA unnamed.myschema";
+        assertSqlCanBeParsedAndDeparsed(statement);
+
+        statement = "CREATE SCHEMA unnamed.session1";
+        assertSqlCanBeParsedAndDeparsed(statement);
+    }
+
+    @Test
     public void testSimpleCreateWithAuth() throws JSQLParserException {
         String statement = "CREATE SCHEMA myschema AUTHORIZATION myauth";
         assertSqlCanBeParsedAndDeparsed(statement);
-        assertDeparse(new CreateSchema().withSchemaName("myschema").withAuthorization("myauth"), statement);
+        assertDeparse(new CreateSchema().withSchemaName("myschema").withAuthorization("myauth"),
+                statement);
+    }
+
+    @Test
+    void testIfNotExistsIssue2061() throws JSQLParserException {
+        String sqlStr = "CREATE SCHEMA IF NOT EXISTS sales_kpi";
+        assertSqlCanBeParsedAndDeparsed(sqlStr);
     }
 }

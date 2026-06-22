@@ -9,6 +9,7 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -22,12 +23,31 @@ public class SetOperationList extends Select {
     private List<OrderByElement> orderByElements;
 
     @Override
-    public void accept(SelectVisitor selectVisitor) {
-        selectVisitor.visit(this);
+    public <T, S> T accept(SelectVisitor<T> selectVisitor, S context) {
+        return selectVisitor.visit(this, context);
+    }
+
+    @Override
+    public <T, S> T accept(FromItemVisitor<T> fromItemVisitor, S context) {
+        return fromItemVisitor.visit(this, context);
+    }
+
+    @Override
+    public SampleClause getSampleClause() {
+        return null;
+    }
+
+    @Override
+    public FromItem setSampleClause(SampleClause sampleClause) {
+        return null;
     }
 
     public List<OrderByElement> getOrderByElements() {
         return orderByElements;
+    }
+
+    public void setOrderByElements(List<OrderByElement> orderByElements) {
+        this.orderByElements = orderByElements;
     }
 
     public List<Select> getSelects() {
@@ -38,18 +58,20 @@ public class SetOperationList extends Select {
         this.selects = selects;
     }
 
-    public void setOperations(List<SetOperation> operations) {
-        this.operations = operations;
+    public Select getSelect(int index) {
+        return selects.get(index);
     }
 
     public List<SetOperation> getOperations() {
         return operations;
     }
 
+    public void setOperations(List<SetOperation> operations) {
+        this.operations = operations;
+    }
 
-
-    public void setOrderByElements(List<OrderByElement> orderByElements) {
-        this.orderByElements = orderByElements;
+    public SetOperation getOperation(int index) {
+        return operations.get(index);
     }
 
     public void setBracketsOpsAndSelects(List<Select> select, List<SetOperation> ops) {
@@ -109,6 +131,10 @@ public class SetOperationList extends Select {
     }
 
     public enum SetOperationType {
-        INTERSECT, EXCEPT, MINUS, UNION
+        INTERSECT, EXCEPT, MINUS, UNION;
+
+        public static SetOperationType from(String type) {
+            return Enum.valueOf(SetOperationType.class, type.toUpperCase());
+        }
     }
 }

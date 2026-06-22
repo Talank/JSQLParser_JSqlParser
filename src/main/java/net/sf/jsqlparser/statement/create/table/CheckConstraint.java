@@ -11,6 +11,7 @@ package net.sf.jsqlparser.statement.create.table;
 
 import java.util.Collection;
 import java.util.List;
+
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.schema.Table;
 
@@ -38,7 +39,12 @@ public class CheckConstraint extends NamedConstraint {
 
     @Override
     public String toString() {
-        return "CONSTRAINT " + getName() + " CHECK (" + expression + ")";
+        StringBuilder b = new StringBuilder();
+        if (getName() != null) {
+            b.append("CONSTRAINT ").append(getName()).append(" ");
+        }
+        b.append("CHECK (").append(expression).append(")");
+        return b.toString();
     }
 
     public CheckConstraint withTable(Table table) {
@@ -100,4 +106,8 @@ public class CheckConstraint extends NamedConstraint {
         return (CheckConstraint) super.withIndexSpec(idxSpec);
     }
 
+    @Override
+    public CheckConstraint withIndexKeyword(String indexKeyword) {
+        return (CheckConstraint) super.withIndexKeyword(indexKeyword);
+    }
 }

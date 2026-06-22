@@ -9,46 +9,84 @@
   #L%
   -->
 
-<xsl:stylesheet version="1.1"
-                xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:xhtml="http://www.w3.org/1999/xhtml"
                 xmlns:svg="http://www.w3.org/2000/svg"
+                version="2.0"
                 exclude-result-prefixes="#all"
 >
     <xsl:output
             method="xml"
             encoding="utf8"
             omit-xml-declaration="yes"
-            indent="no" />
+            indent="no"/>
+
+    <xsl:param name="withFloatingToc" select="'false'"/>
+    <xsl:param name="isSnapshot" select="'false'"/>
 
     <!-- a default catch is needed to suppress all unwanted nodes -->
     <xsl:template match="*">
+        <xsl:choose>
+            <xsl:when test="$withFloatingToc='true'">
+                <xsl:text disable-output-escaping="yes"><![CDATA[
+.. raw:: html
+
+        <div id="floating-toc">
+        <div class="search-container">
+        <input type="button" id="toc-hide-show-btn"></input>
+        <input type="text" id="toc-search" placeholder="Search" />
+        </div>
+        <ul id="toc-list"></ul>
+        </div>
+
+
+]]></xsl:text>
+            </xsl:when>
+        </xsl:choose>
+
         <xsl:apply-templates select="/xhtml:html/xhtml:body"/>
     </xsl:template>
 
     <xsl:template match="/xhtml:html/xhtml:body">
-        <xsl:text  disable-output-escaping="yes">
-********************
-Supported SQL Syntax
-********************
+        <xsl:text disable-output-escaping="yes"><![CDATA[
+*********************************************************************
+SQL Syntax ]]></xsl:text>
+        <xsl:choose>
+            <xsl:when test="$isSnapshot='true'">
+                <xsl:text>|JSQLPARSER_SNAPSHOT_VERSION|</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:text>|JSQLPARSER_VERSION|</xsl:text>
+            </xsl:otherwise>
+        </xsl:choose>
+        <xsl:text><![CDATA[
+*********************************************************************
 
-The EBNF and Railroad Diagrams for JSQLParser-|JSQLPARSER_VERSION|.
+The EBNF and Railroad Diagrams for ]]></xsl:text>
+        <xsl:choose>
+            <xsl:when test="$isSnapshot='true'">
+                <xsl:text>|JSQLPARSER_SNAPSHOT_VERSION|</xsl:text>
+            </xsl:when>
+            <xsl:otherwise>
+                <xsl:text>|JSQLPARSER_VERSION|</xsl:text>
+            </xsl:otherwise>
+        </xsl:choose>
+        <xsl:text>.
 
-   </xsl:text>
+        </xsl:text>
         <xsl:apply-templates select="svg:svg"/>
     </xsl:template>
 
     <xsl:template match="svg:svg[preceding-sibling::*[1]/xhtml:a]">
-<xsl:text  disable-output-escaping="yes">
+        <xsl:text disable-output-escaping="yes"><![CDATA[
 ======================================================================================================================
-        </xsl:text>
-        <xsl:value-of select="translate(preceding-sibling::*[1]/xhtml:a/text(),'\:','')"/>
-        <xsl:text  disable-output-escaping="yes">
+]]></xsl:text><xsl:value-of select="translate(preceding-sibling::*[1]/xhtml:a/text(),'\:','')"/>
+        <xsl:text disable-output-escaping="yes"><![CDATA[
 ======================================================================================================================
 
-        </xsl:text>
+]]></xsl:text>
 
-        <xsl:text  disable-output-escaping="yes">
+        <xsl:text disable-output-escaping="yes">
 .. raw:: html
 
         </xsl:text>
@@ -70,7 +108,8 @@ The EBNF and Railroad Diagrams for JSQLParser-|JSQLPARSER_VERSION|.
                                 <xsl:when test="count(following-sibling::*[2]/xhtml:ul/xhtml:li)>0">
                                     Referenced by:
                                     <ul>
-                                        <xsl:apply-templates select="following-sibling::*[2]/xhtml:ul/xhtml:li/xhtml:a"/>
+                                        <xsl:apply-templates
+                                                select="following-sibling::*[2]/xhtml:ul/xhtml:li/xhtml:a"/>
                                     </ul>
                                 </xsl:when>
                                 <xsl:otherwise>
@@ -84,7 +123,7 @@ The EBNF and Railroad Diagrams for JSQLParser-|JSQLPARSER_VERSION|.
         </table>
 
         <!-- empty Line -->
-        <xsl:text  disable-output-escaping="yes">
+        <xsl:text disable-output-escaping="yes">
 
         </xsl:text>
     </xsl:template>
@@ -92,12 +131,12 @@ The EBNF and Railroad Diagrams for JSQLParser-|JSQLPARSER_VERSION|.
     <xsl:template match="xhtml:a">
         <li>
             <a>
-                <xsl:attributeExpression name="href">
-                    <xsl:value-of select="@href" />
-                </xsl:attributeExpression>
-                <xsl:attributeExpression name="title">
-                    <xsl:value-of select="@title" />
-                </xsl:attributeExpression>
+                <xsl:attribute name="href">
+                    <xsl:value-of select="@href"/>
+                </xsl:attribute>
+                <xsl:attribute name="title">
+                    <xsl:value-of select="@title"/>
+                </xsl:attribute>
                 <xsl:value-of select="text()"/>
             </a>
         </li>

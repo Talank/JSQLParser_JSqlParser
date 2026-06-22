@@ -9,6 +9,7 @@
  */
 package net.sf.jsqlparser.expression;
 
+import java.util.List;
 import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
 import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseAnd;
 import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseLeftShift;
@@ -25,206 +26,778 @@ import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.expression.operators.conditional.XorExpression;
 import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ContainedBy;
+import net.sf.jsqlparser.expression.operators.relational.Contains;
+import net.sf.jsqlparser.expression.operators.relational.CosineSimilarity;
+import net.sf.jsqlparser.expression.operators.relational.DoubleAnd;
 import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ExcludesExpression;
 import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.expression.operators.relational.FullTextSearch;
 import net.sf.jsqlparser.expression.operators.relational.GeometryDistance;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
 import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IncludesExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsBooleanExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsDistinctExpression;
 import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsUnknownExpression;
 import net.sf.jsqlparser.expression.operators.relational.JsonOperator;
 import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
 import net.sf.jsqlparser.expression.operators.relational.Matches;
+import net.sf.jsqlparser.expression.operators.relational.MemberOfExpression;
 import net.sf.jsqlparser.expression.operators.relational.MinorThan;
 import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.Plus;
+import net.sf.jsqlparser.expression.operators.relational.PriorTo;
 import net.sf.jsqlparser.expression.operators.relational.RegExpMatchOperator;
-import net.sf.jsqlparser.expression.operators.relational.RegExpMySQLOperator;
 import net.sf.jsqlparser.expression.operators.relational.SimilarToExpression;
+import net.sf.jsqlparser.expression.operators.relational.TSQLLeftJoin;
+import net.sf.jsqlparser.expression.operators.relational.TSQLRightJoin;
 import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.statement.piped.FromQuery;
 import net.sf.jsqlparser.statement.select.AllColumns;
 import net.sf.jsqlparser.statement.select.AllTableColumns;
+import net.sf.jsqlparser.statement.select.FunctionAllColumns;
+import net.sf.jsqlparser.statement.select.GroupByElement;
+import net.sf.jsqlparser.statement.select.Limit;
+import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.ParenthesedSelect;
 import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.update.UpdateSet;
+
+public interface ExpressionVisitor<T> {
+
+    default <S> T visitExpressions(ExpressionList<? extends Expression> expressions, S context) {
+        if (expressions != null) {
+            expressions.forEach(expression -> expression.accept(this, context));
+        }
+        return null;
+    };
+
+    default <S> T visitExpression(Expression expression, S context) {
+        if (expression != null) {
+            expression.accept(this, context);
+        }
+        return null;
+    }
+
+    default <S> T visitOrderBy(List<OrderByElement> orderByElements, S context) {
+        if (orderByElements != null) {
+            for (OrderByElement orderByElement : orderByElements) {
+                orderByElement.getExpression().accept(this, context);
+            }
+        }
+        return null;
+    }
+
+    default <S> T visitLimit(Limit limit, S context) {
+        if (limit != null && !limit.isLimitNull() && !limit.isLimitAll()) {
+            if (limit.getOffset() != null) {
+                limit.getOffset().accept(this, context);
+            }
+            if (limit.getRowCount() != null) {
+                limit.getRowCount().accept(this, context);
+            }
+            if (limit.getByExpressions() != null) {
+                limit.getByExpressions().accept(this, context);
+            }
+        }
+        return null;
+    }
+
+    default <S> T visitPreferringClause(PreferringClause preferringClause, S context) {
+        if (preferringClause != null) {
+            if (preferringClause.getPreferring() != null) {
+                preferringClause.getPreferring().accept(this, context);
+            }
+            if (preferringClause.getPartitionBy() != null) {
+                for (Expression expression : preferringClause.getPartitionBy()) {
+                    expression.accept(this, context);
+                }
+            }
+        }
+        return null;
+    }
+
+    default <S> T visitUpdateSets(List<UpdateSet> updateSets, S context) {
+        if (updateSets != null) {
+            for (UpdateSet updateSet : updateSets) {
+                for (Column column : updateSet.getColumns()) {
+                    column.accept(this, context);
+                }
+                for (Expression value : updateSet.getValues()) {
+                    value.accept(this, context);
+                }
+            }
+        }
+        return null;
+    }
+
+    default <S> T visit(GroupByElement groupBy, S context) {
+        if (groupBy != null) {
+            for (Expression expression : groupBy.getGroupByExpressionList()) {
+                expression.accept(this, context);
+            }
+            if (!groupBy.getGroupingSets().isEmpty()) {
+                for (ExpressionList<?> expressionList : groupBy.getGroupingSets()) {
+                    expressionList.accept(this, context);
+                }
+            }
+        }
+        return null;
+    }
+
+    <S> T visit(BitwiseRightShift bitwiseRightShift, S context);
+
+    default void visit(BitwiseRightShift bitwiseRightShift) {
+        this.visit(bitwiseRightShift, null);
+    }
+
+    <S> T visit(BitwiseLeftShift bitwiseLeftShift, S context);
+
+    default void visit(BitwiseLeftShift bitwiseLeftShift) {
+        this.visit(bitwiseLeftShift, null);
+    }
+
+    <S> T visit(NullValue nullValue, S context);
+
+    default void visit(NullValue nullValue) {
+        this.visit(nullValue, null);
+    }
 
-public interface ExpressionVisitor {
+    <S> T visit(Function function, S context);
 
-    void visit(BitwiseRightShift aThis);
+    default void visit(Function function) {
+        this.visit(function, null);
+    }
 
-    void visit(BitwiseLeftShift aThis);
+    <S> T visit(SignedExpression signedExpression, S context);
 
-    void visit(NullValue nullValue);
+    default void visit(SignedExpression signedExpression) {
+        this.visit(signedExpression, null);
+    }
 
-    void visit(Function function);
+    <S> T visit(JdbcParameter jdbcParameter, S context);
 
-    void visit(SignedExpression signedExpression);
+    default void visit(JdbcParameter jdbcParameter) {
+        this.visit(jdbcParameter, null);
+    }
 
-    void visit(JdbcParameter jdbcParameter);
+    <S> T visit(JdbcNamedParameter jdbcNamedParameter, S context);
 
-    void visit(JdbcNamedParameter jdbcNamedParameter);
+    default void visit(JdbcNamedParameter jdbcNamedParameter) {
+        this.visit(jdbcNamedParameter, null);
+    }
 
-    void visit(DoubleValue doubleValue);
+    <S> T visit(DoubleValue doubleValue, S context);
 
-    void visit(LongValue longValue);
+    default void visit(DoubleValue doubleValue) {
+        this.visit(doubleValue, null);
+    }
 
-    void visit(HexValue hexValue);
+    <S> T visit(LongValue longValue, S context);
 
-    void visit(DateValue dateValue);
+    default void visit(LongValue longValue) {
+        this.visit(longValue, null);
+    }
 
-    void visit(TimeValue timeValue);
+    <S> T visit(HexValue hexValue, S context);
 
-    void visit(TimestampValue timestampValue);
+    default void visit(HexValue hexValue) {
+        this.visit(hexValue, null);
+    }
 
-    void visit(Parenthesis parenthesis);
+    <S> T visit(DateValue dateValue, S context);
 
-    void visit(StringValue stringValue);
+    default void visit(DateValue dateValue) {
+        this.visit(dateValue, null);
+    }
 
-    void visit(Addition addition);
+    <S> T visit(TimeValue timeValue, S context);
 
-    void visit(Division division);
+    default void visit(TimeValue timeValue) {
+        this.visit(timeValue, null);
+    }
 
-    void visit(IntegerDivision division);
+    <S> T visit(TimestampValue timestampValue, S context);
 
-    void visit(Multiplication multiplication);
+    default void visit(TimestampValue timestampValue) {
+        this.visit(timestampValue, null);
+    }
 
-    void visit(Subtraction subtraction);
+    <S> T visit(StringValue stringValue, S context);
 
-    void visit(AndExpression andExpression);
+    default void visit(StringValue stringValue) {
+        this.visit(stringValue, null);
+    }
 
-    void visit(OrExpression orExpression);
+    <S> T visit(BooleanValue booleanValue, S context);
 
-    void visit(XorExpression orExpression);
+    default void visit(BooleanValue booleanValue) {
+        this.visit(booleanValue, null);
+    }
 
-    void visit(Between between);
+    <S> T visit(Addition addition, S context);
 
-    void visit(OverlapsCondition overlapsCondition);
+    default void visit(Addition addition) {
+        this.visit(addition, null);
+    }
 
-    void visit(EqualsTo equalsTo);
+    <S> T visit(Division division, S context);
 
-    void visit(GreaterThan greaterThan);
+    default void visit(Division division) {
+        this.visit(division, null);
+    }
 
-    void visit(GreaterThanEquals greaterThanEquals);
+    <S> T visit(IntegerDivision integerDivision, S context);
 
-    void visit(InExpression inExpression);
+    default void visit(IntegerDivision integerDivision) {
+        this.visit(integerDivision, null);
+    }
 
-    void visit(FullTextSearch fullTextSearch);
+    <S> T visit(Multiplication multiplication, S context);
 
-    void visit(IsNullExpression isNullExpression);
+    default void visit(Multiplication multiplication) {
+        this.visit(multiplication, null);
+    }
 
-    void visit(IsBooleanExpression isBooleanExpression);
+    <S> T visit(Subtraction subtraction, S context);
 
-    void visit(LikeExpression likeExpression);
+    default void visit(Subtraction subtraction) {
+        this.visit(subtraction, null);
+    }
 
-    void visit(MinorThan minorThan);
+    <S> T visit(AndExpression andExpression, S context);
 
-    void visit(MinorThanEquals minorThanEquals);
+    default void visit(AndExpression andExpression) {
+        this.visit(andExpression, null);
+    }
 
-    void visit(NotEqualsTo notEqualsTo);
+    <S> T visit(OrExpression orExpression, S context);
 
-    void visit(ParenthesedSelect selectBody);
+    default void visit(OrExpression orExpression) {
+        this.visit(orExpression, null);
+    }
 
-    void visit(Column tableColumn);
+    <S> T visit(XorExpression xorExpression, S context);
 
-    void visit(CaseExpression caseExpression);
+    default void visit(XorExpression xorExpression) {
+        this.visit(xorExpression, null);
+    }
 
-    void visit(WhenClause whenClause);
+    <S> T visit(Between between, S context);
 
-    void visit(ExistsExpression existsExpression);
+    default void visit(Between between) {
+        this.visit(between, null);
+    }
 
-    void visit(AnyComparisonExpression anyComparisonExpression);
+    <S> T visit(OverlapsCondition overlapsCondition, S context);
 
-    void visit(Concat concat);
+    default void visit(OverlapsCondition overlapsCondition) {
+        this.visit(overlapsCondition, null);
+    }
 
-    void visit(Matches matches);
+    <S> T visit(EqualsTo equalsTo, S context);
 
-    void visit(BitwiseAnd bitwiseAnd);
+    default void visit(EqualsTo equalsTo) {
+        this.visit(equalsTo, null);
+    }
 
-    void visit(BitwiseOr bitwiseOr);
+    <S> T visit(GreaterThan greaterThan, S context);
 
-    void visit(BitwiseXor bitwiseXor);
+    default void visit(GreaterThan greaterThan) {
+        this.visit(greaterThan, null);
+    }
 
-    void visit(CastExpression cast);
+    <S> T visit(GreaterThanEquals greaterThanEquals, S context);
 
-    void visit(TryCastExpression cast);
+    default void visit(GreaterThanEquals greaterThanEquals) {
+        this.visit(greaterThanEquals, null);
+    }
 
-    void visit(SafeCastExpression cast);
+    <S> T visit(InExpression inExpression, S context);
 
-    void visit(Modulo modulo);
+    default void visit(InExpression inExpression) {
+        this.visit(inExpression, null);
+    }
 
-    void visit(AnalyticExpression aexpr);
+    <S> T visit(IncludesExpression includesExpression, S context);
 
-    void visit(ExtractExpression eexpr);
+    default void visit(IncludesExpression includesExpression) {
+        this.visit(includesExpression, null);
+    }
 
-    void visit(IntervalExpression iexpr);
+    <S> T visit(ExcludesExpression excludesExpression, S context);
 
-    void visit(OracleHierarchicalExpression oexpr);
+    default void visit(ExcludesExpression excludesExpression) {
+        this.visit(excludesExpression, null);
+    }
 
-    void visit(RegExpMatchOperator rexpr);
+    <S> T visit(FullTextSearch fullTextSearch, S context);
 
-    void visit(JsonExpression jsonExpr);
+    default void visit(FullTextSearch fullTextSearch) {
+        this.visit(fullTextSearch, null);
+    }
 
-    void visit(JsonOperator jsonExpr);
+    <S> T visit(IsNullExpression isNullExpression, S context);
 
-    void visit(RegExpMySQLOperator regExpMySQLOperator);
+    default void visit(IsNullExpression isNullExpression) {
+        this.visit(isNullExpression, null);
+    }
 
-    void visit(UserVariable var);
+    <S> T visit(IsBooleanExpression isBooleanExpression, S context);
 
-    void visit(NumericBind bind);
+    default void visit(IsBooleanExpression isBooleanExpression) {
+        this.visit(isBooleanExpression, null);
+    }
 
-    void visit(KeepExpression aexpr);
+    <S> T visit(IsUnknownExpression isUnknownExpression, S context);
 
-    void visit(MySQLGroupConcat groupConcat);
+    default void visit(IsUnknownExpression isUnknownExpression) {
+        this.visit(isUnknownExpression, null);
+    }
 
-    void visit(ValueListExpression valueList);
+    <S> T visit(LikeExpression likeExpression, S context);
 
-    void visit(RowConstructor rowConstructor);
+    default void visit(LikeExpression likeExpression) {
+        this.visit(likeExpression, null);
+    }
 
-    void visit(RowGetExpression rowGetExpression);
+    <S> T visit(MinorThan minorThan, S context);
 
-    void visit(OracleHint hint);
+    default void visit(MinorThan minorThan) {
+        this.visit(minorThan, null);
+    }
 
-    void visit(TimeKeyExpression timeKeyExpression);
+    <S> T visit(MinorThanEquals minorThanEquals, S context);
 
-    void visit(DateTimeLiteralExpression literal);
+    default void visit(MinorThanEquals minorThanEquals) {
+        this.visit(minorThanEquals, null);
+    }
 
-    void visit(NotExpression aThis);
+    <S> T visit(NotEqualsTo notEqualsTo, S context);
 
-    void visit(NextValExpression aThis);
+    default void visit(NotEqualsTo notEqualsTo) {
+        this.visit(notEqualsTo, null);
+    }
 
-    void visit(CollateExpression aThis);
+    <S> T visit(DoubleAnd doubleAnd, S context);
 
-    void visit(SimilarToExpression aThis);
+    default void visit(DoubleAnd doubleAnd) {
+        this.visit(doubleAnd, null);
+    }
 
-    void visit(ArrayExpression aThis);
+    <S> T visit(Contains contains, S context);
 
-    void visit(ArrayConstructor aThis);
+    default void visit(Contains contains) {
+        this.visit(contains, null);
+    }
 
-    void visit(VariableAssignment aThis);
+    <S> T visit(ContainedBy containedBy, S context);
 
-    void visit(XMLSerializeExpr aThis);
+    default void visit(ContainedBy containedBy) {
+        this.visit(containedBy, null);
+    }
 
-    void visit(TimezoneExpression aThis);
+    <S> T visit(ParenthesedSelect select, S context);
 
-    void visit(JsonAggregateFunction aThis);
+    <S> T visit(Column column, S context);
 
-    void visit(JsonFunction aThis);
+    default void visit(Column column) {
+        this.visit(column, null);
+    }
 
-    void visit(ConnectByRootOperator aThis);
+    <S> T visit(CaseExpression caseExpression, S context);
 
-    void visit(OracleNamedFunctionParameter aThis);
+    default void visit(CaseExpression caseExpression) {
+        this.visit(caseExpression, null);
+    }
 
-    void visit(AllColumns allColumns);
+    <S> T visit(WhenClause whenClause, S context);
 
-    void visit(AllTableColumns allTableColumns);
+    default void visit(WhenClause whenClause) {
+        this.visit(whenClause, null);
+    }
 
-    void visit(AllValue allValue);
+    <S> T visit(ExistsExpression existsExpression, S context);
 
-    void visit(IsDistinctExpression isDistinctExpression);
+    default void visit(ExistsExpression existsExpression) {
+        this.visit(existsExpression, null);
+    }
 
-    void visit(GeometryDistance geometryDistance);
+    <S> T visit(MemberOfExpression memberOfExpression, S context);
 
-    void visit(Select selectBody);
+    default void visit(MemberOfExpression memberOfExpression) {
+        this.visit(memberOfExpression, null);
+    }
+
+    <S> T visit(AnyComparisonExpression anyComparisonExpression, S context);
+
+    default void visit(AnyComparisonExpression anyComparisonExpression) {
+        this.visit(anyComparisonExpression, null);
+    }
+
+    <S> T visit(Concat concat, S context);
+
+    default void visit(Concat concat) {
+        this.visit(concat, null);
+    }
+
+    <S> T visit(Matches matches, S context);
+
+    default void visit(Matches matches) {
+        this.visit(matches, null);
+    }
+
+    <S> T visit(BitwiseAnd bitwiseAnd, S context);
+
+    default void visit(BitwiseAnd bitwiseAnd) {
+        this.visit(bitwiseAnd, null);
+    }
+
+    <S> T visit(BitwiseOr bitwiseOr, S context);
+
+    default void visit(BitwiseOr bitwiseOr) {
+        this.visit(bitwiseOr, null);
+    }
+
+    <S> T visit(BitwiseXor bitwiseXor, S context);
+
+    default void visit(BitwiseXor bitwiseXor) {
+        this.visit(bitwiseXor, null);
+    }
+
+    <S> T visit(CastExpression castExpression, S context);
+
+    default void visit(CastExpression castExpression) {
+        this.visit(castExpression, null);
+    }
+
+    <S> T visit(Modulo modulo, S context);
+
+    default void visit(Modulo modulo) {
+        this.visit(modulo, null);
+    }
+
+    <S> T visit(AnalyticExpression analyticExpression, S context);
+
+    default void visit(AnalyticExpression analyticExpression) {
+        this.visit(analyticExpression, null);
+    }
+
+    <S> T visit(ExtractExpression extractExpression, S context);
+
+    default void visit(ExtractExpression extractExpression) {
+        this.visit(extractExpression, null);
+    }
+
+    <S> T visit(IntervalExpression intervalExpression, S context);
+
+    default void visit(IntervalExpression intervalExpression) {
+        this.visit(intervalExpression, null);
+    }
+
+    <S> T visit(OracleHierarchicalExpression hierarchicalExpression, S context);
+
+    default void visit(OracleHierarchicalExpression hierarchicalExpression) {
+        this.visit(hierarchicalExpression, null);
+    }
+
+    <S> T visit(RegExpMatchOperator regExpMatchOperator, S context);
+
+    default void visit(RegExpMatchOperator regExpMatchOperator) {
+        this.visit(regExpMatchOperator, null);
+    }
+
+    <S> T visit(JsonExpression jsonExpression, S context);
+
+    default void visit(JsonExpression jsonExpression) {
+        this.visit(jsonExpression, null);
+    }
+
+    <S> T visit(JsonOperator jsonOperator, S context);
+
+    default void visit(JsonOperator jsonOperator) {
+        this.visit(jsonOperator, null);
+    }
+
+    <S> T visit(UserVariable userVariable, S context);
+
+    default void visit(UserVariable userVariable) {
+        this.visit(userVariable, null);
+    }
+
+    <S> T visit(NumericBind numericBind, S context);
+
+    default void visit(NumericBind numericBind) {
+        this.visit(numericBind, null);
+    }
+
+    <S> T visit(KeepExpression keepExpression, S context);
+
+    default void visit(KeepExpression keepExpression) {
+        this.visit(keepExpression, null);
+    }
+
+    <S> T visit(MySQLGroupConcat groupConcat, S context);
+
+    default void visit(MySQLGroupConcat groupConcat) {
+        this.visit(groupConcat, null);
+    }
+
+    <S> T visit(ExpressionList<? extends Expression> expressionList, S context);
+
+    default void visit(ExpressionList<? extends Expression> expressionList) {
+        this.visit(expressionList, null);
+    }
+
+    <S> T visit(RowConstructor<? extends Expression> rowConstructor, S context);
+
+    default void visit(RowConstructor<? extends Expression> rowConstructor) {
+        this.visit(rowConstructor, null);
+    }
+
+    <S> T visit(RowGetExpression rowGetExpression, S context);
+
+    default void visit(RowGetExpression rowGetExpression) {
+        this.visit(rowGetExpression, null);
+    }
+
+    <S> T visit(OracleHint hint, S context);
+
+    default void visit(OracleHint hint) {
+        this.visit(hint, null);
+    }
+
+    <S> T visit(TimeKeyExpression timeKeyExpression, S context);
+
+    default void visit(TimeKeyExpression timeKeyExpression) {
+        this.visit(timeKeyExpression, null);
+    }
+
+    <S> T visit(DateTimeLiteralExpression dateTimeLiteralExpression, S context);
+
+    default void visit(DateTimeLiteralExpression dateTimeLiteralExpression) {
+        this.visit(dateTimeLiteralExpression, null);
+    }
+
+    <S> T visit(NotExpression notExpression, S context);
+
+    default void visit(NotExpression notExpression) {
+        this.visit(notExpression, null);
+    }
+
+    <S> T visit(NextValExpression nextValExpression, S context);
+
+    default void visit(NextValExpression nextValExpression) {
+        this.visit(nextValExpression, null);
+    }
+
+    <S> T visit(CollateExpression collateExpression, S context);
+
+    default void visit(CollateExpression collateExpression) {
+        this.visit(collateExpression, null);
+    }
+
+    <S> T visit(SimilarToExpression similarToExpression, S context);
+
+    default void visit(SimilarToExpression similarToExpression) {
+        this.visit(similarToExpression, null);
+    }
+
+    <S> T visit(ArrayExpression arrayExpression, S context);
+
+    default void visit(ArrayExpression arrayExpression) {
+        this.visit(arrayExpression, null);
+    }
+
+    <S> T visit(ArrayConstructor arrayConstructor, S context);
+
+    default void visit(ArrayConstructor arrayConstructor) {
+        this.visit(arrayConstructor, null);
+    }
+
+    <S> T visit(VariableAssignment variableAssignment, S context);
+
+    default void visit(VariableAssignment variableAssignment) {
+        this.visit(variableAssignment, null);
+    }
+
+    <S> T visit(XMLSerializeExpr xmlSerializeExpr, S context);
+
+    default void visit(XMLSerializeExpr xmlSerializeExpr) {
+        this.visit(xmlSerializeExpr, null);
+    }
+
+    <S> T visit(TimezoneExpression timezoneExpression, S context);
+
+    default void visit(TimezoneExpression timezoneExpression) {
+        this.visit(timezoneExpression, null);
+    }
+
+    <S> T visit(JsonAggregateFunction jsonAggregateFunction, S context);
+
+    default void visit(JsonAggregateFunction jsonAggregateFunction) {
+        this.visit(jsonAggregateFunction, null);
+    }
+
+    <S> T visit(JsonFunction jsonFunction, S context);
+
+    default void visit(JsonFunction jsonFunction) {
+        this.visit(jsonFunction, null);
+    }
+
+    default <S> T visit(JsonTableFunction jsonTableFunction, S context) {
+        return visit((Function) jsonTableFunction, context);
+    }
+
+    default void visit(JsonTableFunction jsonTableFunction) {
+        this.visit(jsonTableFunction, null);
+    }
+
+    <S> T visit(ConnectByRootOperator connectByRootOperator, S context);
+
+    default void visit(ConnectByRootOperator connectByRootOperator) {
+        this.visit(connectByRootOperator, null);
+    }
+
+    <S> T visit(ConnectByPriorOperator connectByPriorOperator, S context);
+
+    default void visit(ConnectByPriorOperator connectByPriorOperator) {
+        this.visit(connectByPriorOperator, null);
+    }
+
+    <S> T visit(OracleNamedFunctionParameter oracleNamedFunctionParameter, S context);
+
+    default void visit(OracleNamedFunctionParameter oracleNamedFunctionParameter) {
+        this.visit(oracleNamedFunctionParameter, null);
+    }
+
+    <S> T visit(AllColumns allColumns, S context);
+
+    <S> T visit(FunctionAllColumns functionColumns, S context);
+
+    default void visit(AllColumns allColumns) {
+        this.visit(allColumns, null);
+    }
+
+    <S> T visit(AllTableColumns allTableColumns, S context);
+
+    default void visit(AllTableColumns allTableColumns) {
+        this.visit(allTableColumns, null);
+    }
+
+    <S> T visit(AllValue allValue, S context);
+
+    default void visit(AllValue allValue) {
+        this.visit(allValue, null);
+    }
+
+    <S> T visit(IsDistinctExpression isDistinctExpression, S context);
+
+    default void visit(IsDistinctExpression isDistinctExpression) {
+        this.visit(isDistinctExpression, null);
+    }
+
+    <S> T visit(GeometryDistance geometryDistance, S context);
+
+    default void visit(GeometryDistance geometryDistance) {
+        this.visit(geometryDistance, null);
+    }
+
+    <S> T visit(Select select, S context);
+
+    <S> T visit(TranscodingFunction transcodingFunction, S context);
+
+    default void visit(TranscodingFunction transcodingFunction) {
+        this.visit(transcodingFunction, null);
+    }
+
+    <S> T visit(TrimFunction trimFunction, S context);
+
+    default void visit(TrimFunction trimFunction) {
+        this.visit(trimFunction, null);
+    }
+
+    <S> T visit(RangeExpression rangeExpression, S context);
+
+    default void visit(RangeExpression rangeExpression) {
+        this.visit(rangeExpression, null);
+    }
+
+    <S> T visit(TSQLLeftJoin tsqlLeftJoin, S context);
+
+    default void visit(TSQLLeftJoin tsqlLeftJoin) {
+        this.visit(tsqlLeftJoin, null);
+    }
+
+    <S> T visit(TSQLRightJoin tsqlRightJoin, S context);
+
+    default void visit(TSQLRightJoin tsqlRightJoin) {
+        this.visit(tsqlRightJoin, null);
+    }
+
+    <S> T visit(StructType structType, S context);
+
+    default void visit(StructType structType) {
+        this.visit(structType, null);
+    }
+
+    <S> T visit(LambdaExpression lambdaExpression, S context);
+
+    default void visit(LambdaExpression lambdaExpression) {
+        this.visit(lambdaExpression, null);
+    }
+
+    <S> T visit(HighExpression highExpression, S context);
+
+    default void visit(HighExpression highExpression) {
+        this.visit(highExpression, null);
+    }
+
+    <S> T visit(LowExpression lowExpression, S context);
+
+    default void visit(LowExpression lowExpression) {
+        this.visit(lowExpression, null);
+    }
+
+    <S> T visit(Plus plus, S context);
+
+    default void visit(Plus plus) {
+        this.visit(plus, null);
+    }
+
+    <S> T visit(PriorTo priorTo, S context);
+
+    default void visit(PriorTo priorTo) {
+        this.visit(priorTo, null);
+    }
+
+    <S> T visit(Inverse inverse, S context);
+
+    default void visit(Inverse inverse) {
+        this.visit(inverse, null);
+    }
+
+    <S> T visit(CosineSimilarity cosineSimilarity, S context);
+
+    <S> T visit(FromQuery fromQuery, S context);
+
+    <S> T visit(DateUnitExpression dateUnitExpression, S context);
+
+    <S> T visit(KeyExpression keyExpression, S context);
+
+    default void visit(KeyExpression keyExpression) {
+        this.visit(keyExpression, null);
+    }
+
+    <S> T visit(PostgresNamedFunctionParameter postgresNamedFunctionParameter, S context);
+
+    default void visit(PostgresNamedFunctionParameter postgresNamedFunctionParameter) {
+        this.visit(postgresNamedFunctionParameter, null);
+    }
 }

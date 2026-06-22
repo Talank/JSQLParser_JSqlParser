@@ -11,8 +11,10 @@ package net.sf.jsqlparser.expression;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import net.sf.jsqlparser.*;
-import net.sf.jsqlparser.test.*;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.test.TestUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -86,5 +88,27 @@ public class StringValueTest {
 
         sqlStr = "select q'{It's good!}' from dual";
         TestUtils.assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    public void testParseInput_BYTEA() throws Exception {
+        String sqlStr = "VALUES (X'', X'01FF', X'01 bc 2a', X'01' '02')";
+        TestUtils.assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    void testDollarQuotesIssue2267() throws JSQLParserException {
+        String sqlStr = "SELECT $$this is a string$$, test, 'text' FROM tbl;";
+        PlainSelect select = (PlainSelect) TestUtils.assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        Assertions.assertInstanceOf(StringValue.class, select.getSelectItem(0).getExpression());
+    }
+
+    @Test
+    void testDollarQuotesWithDollarSignsInside() throws JSQLParserException {
+        String sqlStr = "SELECT $$this references $1 and costs $5$$ FROM tbl;";
+        PlainSelect select = (PlainSelect) TestUtils.assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        Assertions.assertInstanceOf(StringValue.class, select.getSelectItem(0).getExpression());
     }
 }

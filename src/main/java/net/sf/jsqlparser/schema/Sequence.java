@@ -1,8 +1,8 @@
-/*
+/*-
  * #%L
  * JSQLParser library
  * %%
- * Copyright (C) 2004 - 2020 JSQLParser
+ * Copyright (C) 2004 - 2019 JSQLParser
  * %%
  * Dual licensed under GNU LGPL 2.1 or Apache License 2.0
  * #L%
@@ -28,21 +28,34 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
     private List<String> partItems = new ArrayList<>();
 
     private List<Parameter> parameters;
+    private String dataType;
 
-    public Sequence() {
-    }
+    public Sequence() {}
 
     public Sequence(List<String> partItems) {
         this.partItems = new ArrayList<>(partItems);
         Collections.reverse(this.partItems);
     }
 
+    public List<Parameter> getParameters() {
+        return parameters;
+    }
+
     public void setParameters(List<Parameter> parameters) {
         this.parameters = parameters;
     }
 
-    public List<Parameter> getParameters() {
-        return parameters;
+    public String getDataType() {
+        return dataType;
+    }
+
+    public void setDataType(String dataType) {
+        this.dataType = dataType;
+    }
+
+    public Sequence withDataType(String dataType) {
+        this.setDataType(dataType);
+        return this;
     }
 
     public Database getDatabase() {
@@ -122,8 +135,16 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
     }
 
     @Override
+    public String getUnquotedName() {
+        return MultiPartName.unquote(partItems.get(NAME_IDX));
+    }
+
+    @Override
     public String toString() {
         StringBuilder sql = new StringBuilder(getFullyQualifiedName());
+        if (dataType != null) {
+            sql.append(" AS ").append(dataType);
+        }
         if (parameters != null) {
             for (Sequence.Parameter parameter : parameters) {
                 sql.append(" ").append(parameter.formatParameter());
@@ -153,23 +174,11 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
      * The available parameters to a sequence
      */
     public enum ParameterType {
-        INCREMENT_BY,
-        START_WITH,
-        RESTART_WITH,
-        MAXVALUE,
-        NOMAXVALUE,
-        MINVALUE,
-        NOMINVALUE,
-        CYCLE,
-        NOCYCLE,
-        CACHE,
-        NOCACHE,
-        ORDER,
-        NOORDER,
-        KEEP,
-        NOKEEP,
-        SESSION,
-        GLOBAL
+        INCREMENT_BY, INCREMENT, START_WITH, START, RESTART_WITH, MAXVALUE, NOMAXVALUE, MINVALUE, NOMINVALUE, CYCLE, NOCYCLE, CACHE, NOCACHE, ORDER, NOORDER, KEEP, NOKEEP, SESSION, GLOBAL;
+
+        public static ParameterType from(String type) {
+            return Enum.valueOf(ParameterType.class, type.toUpperCase());
+        }
     }
 
     /**
@@ -196,8 +205,12 @@ public class Sequence extends ASTNodeAccessImpl implements MultiPartName {
             switch (option) {
                 case INCREMENT_BY:
                     return prefix("INCREMENT BY");
+                case INCREMENT:
+                    return prefix("INCREMENT");
                 case START_WITH:
                     return prefix("START WITH");
+                case START:
+                    return prefix("START");
                 case RESTART_WITH:
                     if (value != null) {
                         return prefix("RESTART WITH");

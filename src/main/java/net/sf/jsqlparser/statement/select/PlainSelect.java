@@ -9,51 +9,118 @@
  */
 package net.sf.jsqlparser.statement.select;
 
-import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.expression.OracleHierarchicalExpression;
-import net.sf.jsqlparser.expression.OracleHint;
-import net.sf.jsqlparser.expression.WindowDefinition;
-import net.sf.jsqlparser.schema.Table;
+import static java.util.stream.Collectors.joining;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
-
-import static java.util.stream.Collectors.joining;
+import net.sf.jsqlparser.expression.Alias;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.OracleHierarchicalExpression;
+import net.sf.jsqlparser.expression.OracleHint;
+import net.sf.jsqlparser.expression.PreferringClause;
+import net.sf.jsqlparser.expression.WindowDefinition;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.update.UpdateSet;
 
 @SuppressWarnings({"PMD.CyclomaticComplexity"})
 public class PlainSelect extends Select {
 
     private Distinct distinct = null;
-    private List<SelectItem> selectItems;
+    private BigQuerySelectQualifier bigQuerySelectQualifier = null;
+    private List<SelectItem<?>> selectItems;
     private List<Table> intoTables;
+    private MySqlSelectIntoClause mySqlSelectIntoClause;
     private FromItem fromItem;
+    private List<LateralView> lateralViews;
     private List<Join> joins;
+    private Expression preWhere;
     private Expression where;
     private GroupByElement groupBy;
     private Expression having;
+    private Expression qualify;
     private OptimizeFor optimizeFor;
     private Skip skip;
     private boolean mySqlHintStraightJoin;
     private First first;
     private Top top;
     private OracleHierarchicalExpression oracleHierarchical = null;
+    private PreferringClause preferringClause = null;
     private OracleHint oracleHint = null;
-    private boolean forUpdate = false;
-    private Table forUpdateTable = null;
-    private boolean skipLocked;
-    private Wait wait;
     private boolean mySqlSqlCalcFoundRows = false;
     private MySqlSqlCacheFlags mySqlCacheFlag = null;
     private String forXmlPath;
     private KSQLWindow ksqlWindow = null;
-    private boolean noWait = false;
     private boolean emitChanges = false;
-
     private List<WindowDefinition> windowDefinitions;
+    /**
+     * @see <a href=
+     *      'https://clickhouse.com/docs/en/sql-reference/statements/select/from#final-modifier'>Clickhouse
+     *      FINAL</a>
+     */
+    private boolean isUsingFinal = false;
+    private boolean isUsingOnly = false;
+    private boolean useWithNoLog = false;
+    private Table intoTempTable = null;
+    private List<UpdateSet> settings = null;
+
+    public PlainSelect() {}
+
+    public PlainSelect(FromItem fromItem) {
+        addSelectItem(new AllColumns());
+        setFromItem(fromItem);
+    }
+
+    public PlainSelect(FromItem fromItem, Expression whereExpressions) {
+        addSelectItem(new AllColumns());
+        setFromItem(fromItem);
+        setWhere(whereExpressions);
+    }
+
+    public PlainSelect(FromItem fromItem, Collection<Expression> orderByExpressions) {
+        addSelectItem(new AllColumns());
+        setFromItem(fromItem);
+        addOrderByExpressions(orderByExpressions);
+    }
+
+    public PlainSelect(FromItem fromItem, Expression whereExpressions,
+            Collection<Expression> orderByExpressions) {
+        addSelectItem(new AllColumns());
+        setFromItem(fromItem);
+        setWhere(whereExpressions);
+        addOrderByExpressions(orderByExpressions);
+    }
+
+    public PlainSelect(Collection<Expression> selectExpressions, FromItem fromItem) {
+        addSelectExpressions(selectExpressions);
+        setFromItem(fromItem);
+    }
+
+    public PlainSelect(Collection<Expression> selectExpressions, FromItem fromItem,
+            Expression whereExpressions) {
+        addSelectExpressions(selectExpressions);
+        setFromItem(fromItem);
+        setWhere(whereExpressions);
+    }
+
+    public PlainSelect(Collection<Expression> selectExpressions, FromItem fromItem,
+            Collection<Expression> orderByExpressions) {
+        addSelectExpressions(selectExpressions);
+        setFromItem(fromItem);
+        addOrderByExpressions(orderByExpressions);
+    }
+
+    public PlainSelect(Collection<Expression> selectExpressions, FromItem fromItem,
+            Expression whereExpressions, Collection<Expression> orderByExpressions) {
+        addSelectExpressions(selectExpressions);
+        setFromItem(fromItem);
+        setWhere(whereExpressions);
+        addOrderByExpressions(orderByExpressions);
+    }
 
     @Deprecated
     public boolean isUseBrackets() {
@@ -64,16 +131,52 @@ public class PlainSelect extends Select {
         return fromItem;
     }
 
+    public void setFromItem(FromItem item) {
+        fromItem = item;
+    }
+
     public List<Table> getIntoTables() {
         return intoTables;
     }
 
-    public List<SelectItem> getSelectItems() {
+    public void setIntoTables(List<Table> intoTables) {
+        this.intoTables = intoTables;
+    }
+
+    public MySqlSelectIntoClause getMySqlSelectIntoClause() {
+        return mySqlSelectIntoClause;
+    }
+
+    public void setMySqlSelectIntoClause(MySqlSelectIntoClause mySqlSelectIntoClause) {
+        this.mySqlSelectIntoClause = mySqlSelectIntoClause;
+    }
+
+    public List<SelectItem<?>> getSelectItems() {
         return selectItems;
+    }
+
+    public void setSelectItems(List<SelectItem<?>> list) {
+        selectItems = list;
+    }
+
+    public SelectItem<?> getSelectItem(int index) {
+        return selectItems.get(index);
     }
 
     public Expression getWhere() {
         return where;
+    }
+
+    public void setWhere(Expression where) {
+        this.where = where;
+    }
+
+    public Expression getPreWhere() {
+        return preWhere;
+    }
+
+    public void setPreWhere(Expression preWhere) {
+        this.preWhere = preWhere;
     }
 
     public PlainSelect withFromItem(FromItem item) {
@@ -81,31 +184,73 @@ public class PlainSelect extends Select {
         return this;
     }
 
-    public void setFromItem(FromItem item) {
-        fromItem = item;
-    }
-
-    public void setIntoTables(List<Table> intoTables) {
-        this.intoTables = intoTables;
-    }
-
-    public PlainSelect withSelectItems(List<SelectItem> list) {
+    public PlainSelect withSelectItems(List<SelectItem<?>> list) {
         this.setSelectItems(list);
         return this;
     }
 
-    public void setSelectItems(List<SelectItem> list) {
-        selectItems = list;
+    public PlainSelect withSelectItems(SelectItem<?>... selectItems) {
+        return this.withSelectItems(Arrays.asList(selectItems));
     }
 
-    public PlainSelect addSelectItems(SelectItem... items) {
-        List<SelectItem> list = Optional.ofNullable(getSelectItems()).orElseGet(ArrayList::new);
-        Collections.addAll(list, items);
-        return withSelectItems(list);
+    public PlainSelect addSelectItems(SelectItem<?>... items) {
+        selectItems = Optional.ofNullable(selectItems).orElseGet(ArrayList::new);
+        selectItems.addAll(Arrays.asList(items));
+        return this;
     }
 
-    public void setWhere(Expression where) {
-        this.where = where;
+    public PlainSelect addSelectExpressions(Collection<Expression> expressions) {
+        selectItems = Optional.ofNullable(selectItems).orElseGet(ArrayList::new);
+        for (Expression expression : expressions) {
+            selectItems.add(SelectItem.from(expression));
+        }
+        return this;
+    }
+
+    public PlainSelect addSelectItems(Expression... expressions) {
+        return this.addSelectExpressions(Arrays.asList(expressions));
+    }
+
+    public PlainSelect addSelectItem(Expression expression, Alias alias) {
+        selectItems = Optional.ofNullable(selectItems).orElseGet(ArrayList::new);
+        selectItems.add(new SelectItem<>(expression, alias));
+        return this;
+    }
+
+    public PlainSelect addSelectItem(Expression expression) {
+        return addSelectItem(expression, null);
+    }
+
+    public List<LateralView> getLateralViews() {
+        return lateralViews;
+    }
+
+    public void setLateralViews(Collection<LateralView> lateralViews) {
+        if (this.lateralViews == null) {
+            this.lateralViews = new ArrayList<>();
+        } else {
+            this.lateralViews.clear();
+        }
+
+        if (lateralViews != null) {
+            this.lateralViews.addAll(lateralViews);
+        } else {
+            this.lateralViews = null;
+        }
+    }
+
+    public PlainSelect addLateralView(LateralView lateralView) {
+        if (this.lateralViews == null) {
+            this.lateralViews = new ArrayList<>();
+        }
+
+        this.lateralViews.add(lateralView);
+        return this;
+    }
+
+    public PlainSelect withLateralViews(Collection<LateralView> lateralViews) {
+        this.setLateralViews(lateralViews);
+        return this;
     }
 
     /**
@@ -115,6 +260,14 @@ public class PlainSelect extends Select {
      */
     public List<Join> getJoins() {
         return joins;
+    }
+
+    public void setJoins(List<Join> list) {
+        joins = list;
+    }
+
+    public Join getJoin(int index) {
+        return joins.get(index);
     }
 
     public PlainSelect addJoins(Join... joins) {
@@ -128,13 +281,89 @@ public class PlainSelect extends Select {
         return this;
     }
 
-    public void setJoins(List<Join> list) {
-        joins = list;
+    public boolean isUsingFinal() {
+        return isUsingFinal;
+    }
+
+    public void setUsingFinal(boolean usingFinal) {
+        this.isUsingFinal = usingFinal;
+    }
+
+    public PlainSelect withUsingFinal(boolean usingFinal) {
+        this.setUsingFinal(usingFinal);
+        return this;
+    }
+
+    public boolean isUsingOnly() {
+        return isUsingOnly;
+    }
+
+    public void setUsingOnly(boolean usingOnly) {
+        isUsingOnly = usingOnly;
+    }
+
+    public PlainSelect withUsingOnly(boolean usingOnly) {
+        this.setUsingOnly(usingOnly);
+        return this;
+    }
+
+    public boolean isUseWithNoLog() {
+        return useWithNoLog;
+    }
+
+    public void setUseWithNoLog(boolean useWithNoLog) {
+        this.useWithNoLog = useWithNoLog;
+    }
+
+    public PlainSelect withUseWithNoLog(boolean useWithNoLog) {
+        this.setUseWithNoLog(useWithNoLog);
+        return this;
+    }
+
+    public Table getIntoTempTable() {
+        return intoTempTable;
+    }
+
+    public void setIntoTempTable(Table intoTempTable) {
+        this.intoTempTable = intoTempTable;
+    }
+
+    public PlainSelect withIntoTempTable(Table intoTempTable) {
+        this.setIntoTempTable(intoTempTable);
+        return this;
+    }
+
+    public List<UpdateSet> getSettings() {
+        return settings;
+    }
+
+    public void setSettings(List<UpdateSet> settings) {
+        this.settings = settings;
+    }
+
+    public PlainSelect withSettings(List<UpdateSet> settings) {
+        this.setSettings(settings);
+        return this;
     }
 
     @Override
-    public void accept(SelectVisitor selectVisitor) {
-        selectVisitor.visit(this);
+    public <T, S> T accept(SelectVisitor<T> selectVisitor, S context) {
+        return selectVisitor.visit(this, context);
+    }
+
+    @Override
+    public <T, S> T accept(FromItemVisitor<T> fromItemVisitor, S context) {
+        return fromItemVisitor.visit(this, context);
+    }
+
+    @Override
+    public SampleClause getSampleClause() {
+        return null;
+    }
+
+    @Override
+    public FromItem setSampleClause(SampleClause sampleClause) {
+        return null;
     }
 
     public OptimizeFor getOptimizeFor() {
@@ -185,12 +414,30 @@ public class PlainSelect extends Select {
         this.distinct = distinct;
     }
 
+    public BigQuerySelectQualifier getBigQuerySelectQualifier() {
+        return bigQuerySelectQualifier;
+    }
+
+    public PlainSelect setBigQuerySelectQualifier(BigQuerySelectQualifier bigQuerySelectQualifier) {
+        this.bigQuerySelectQualifier = bigQuerySelectQualifier;
+        return this;
+    }
+
     public Expression getHaving() {
         return having;
     }
 
     public void setHaving(Expression expression) {
         having = expression;
+    }
+
+    public Expression getQualify() {
+        return qualify;
+    }
+
+    public PlainSelect setQualify(Expression qualify) {
+        this.qualify = qualify;
+        return this;
     }
 
     /**
@@ -208,8 +455,8 @@ public class PlainSelect extends Select {
     }
 
     public PlainSelect addGroupByColumnReference(Expression expr) {
-        groupBy = Optional.ofNullable(groupBy).orElseGet(GroupByElement::new);
-        groupBy.addGroupByExpression(expr);
+        this.groupBy = Optional.ofNullable(groupBy).orElseGet(GroupByElement::new);
+        this.groupBy.addGroupByExpression(expr);
         return this;
     }
 
@@ -221,20 +468,12 @@ public class PlainSelect extends Select {
         this.oracleHierarchical = oracleHierarchical;
     }
 
-    public boolean isForUpdate() {
-        return forUpdate;
+    public PreferringClause getPreferringClause() {
+        return preferringClause;
     }
 
-    public void setForUpdate(boolean forUpdate) {
-        this.forUpdate = forUpdate;
-    }
-
-    public Table getForUpdateTable() {
-        return forUpdateTable;
-    }
-
-    public void setForUpdateTable(Table forUpdateTable) {
-        this.forUpdateTable = forUpdateTable;
+    public void setPreferringClause(PreferringClause preferringClause) {
+        this.preferringClause = preferringClause;
     }
 
     public OracleHint getOracleHint() {
@@ -243,24 +482,6 @@ public class PlainSelect extends Select {
 
     public void setOracleHint(OracleHint oracleHint) {
         this.oracleHint = oracleHint;
-    }
-
-    /**
-     * Sets the {@link Wait} for this SELECT
-     *
-     * @param wait the {@link Wait} for this SELECT
-     */
-    public void setWait(final Wait wait) {
-        this.wait = wait;
-    }
-
-    /**
-     * Returns the value of the {@link Wait} set for this SELECT
-     *
-     * @return the value of the {@link Wait} set for this SELECT
-     */
-    public Wait getWait() {
-        return wait;
     }
 
     public String getForXmlPath() {
@@ -279,12 +500,12 @@ public class PlainSelect extends Select {
         this.ksqlWindow = ksqlWindow;
     }
 
-    public void setEmitChanges(boolean emitChanges) {
-        this.emitChanges = emitChanges;
-    }
-
     public boolean isEmitChanges() {
         return emitChanges;
+    }
+
+    public void setEmitChanges(boolean emitChanges) {
+        this.emitChanges = emitChanges;
     }
 
     public List<WindowDefinition> getWindowDefinitions() {
@@ -293,14 +514,6 @@ public class PlainSelect extends Select {
 
     public void setWindowDefinitions(List<WindowDefinition> windowDefinitions) {
         this.windowDefinitions = windowDefinitions;
-    }
-
-    public boolean isSkipLocked() {
-        return skipLocked;
-    }
-
-    public void setSkipLocked(boolean skipLocked) {
-        this.skipLocked = skipLocked;
     }
 
     @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.ExcessiveMethodLength",
@@ -327,6 +540,18 @@ public class PlainSelect extends Select {
         if (distinct != null) {
             builder.append(distinct).append(" ");
         }
+
+        if (bigQuerySelectQualifier != null) {
+            switch (bigQuerySelectQualifier) {
+                case AS_STRUCT:
+                    builder.append("AS STRUCT ");
+                    break;
+                case AS_VALUE:
+                    builder.append("AS VALUE ");
+                    break;
+            }
+        }
+
         if (top != null) {
             builder.append(top).append(" ");
         }
@@ -348,8 +573,23 @@ public class PlainSelect extends Select {
             }
         }
 
+        if (mySqlSelectIntoClause != null
+                && mySqlSelectIntoClause
+                        .getPosition() == MySqlSelectIntoClause.Position.BEFORE_FROM) {
+            builder.append(" ").append(mySqlSelectIntoClause);
+        }
+
         if (fromItem != null) {
-            builder.append(" FROM ").append(fromItem);
+            builder.append(" FROM ");
+            if (isUsingOnly) {
+                builder.append("ONLY ");
+            }
+            builder.append(fromItem);
+            if (lateralViews != null) {
+                for (LateralView lateralView : lateralViews) {
+                    builder.append(" ").append(lateralView);
+                }
+            }
             if (joins != null) {
                 for (Join join : joins) {
                     if (join.isSimple()) {
@@ -360,8 +600,15 @@ public class PlainSelect extends Select {
                 }
             }
 
+            if (isUsingFinal) {
+                builder.append(" FINAL");
+            }
+
             if (ksqlWindow != null) {
                 builder.append(" WINDOW ").append(ksqlWindow);
+            }
+            if (preWhere != null) {
+                builder.append(" PREWHERE ").append(preWhere);
             }
             if (where != null) {
                 builder.append(" WHERE ").append(where);
@@ -369,11 +616,17 @@ public class PlainSelect extends Select {
             if (oracleHierarchical != null) {
                 builder.append(oracleHierarchical);
             }
+            if (preferringClause != null) {
+                builder.append(" ").append(preferringClause);
+            }
             if (groupBy != null) {
                 builder.append(" ").append(groupBy);
             }
             if (having != null) {
                 builder.append(" HAVING ").append(having);
+            }
+            if (qualify != null) {
+                builder.append(" QUALIFY ").append(qualify);
             }
             if (windowDefinitions != null) {
                 builder.append(" WINDOW ");
@@ -383,29 +636,20 @@ public class PlainSelect extends Select {
             if (emitChanges) {
                 builder.append(" EMIT CHANGES");
             }
-            if (isForUpdate()) {
-                builder.append(" FOR UPDATE");
-
-                if (forUpdateTable != null) {
-                    builder.append(" OF ").append(forUpdateTable);
-                }
-
-                if (wait != null) {
-                    // Wait's toString will do the formatting for us
-                    builder.append(wait);
-                }
-
-                if (isNoWait()) {
-                    builder.append(" NOWAIT");
-                } else if (isSkipLocked()) {
-                    builder.append(" SKIP LOCKED");
-                }
-            }
         } else {
             // without from
+            if (preWhere != null) {
+                builder.append(" PREWHERE ").append(preWhere);
+            }
             if (where != null) {
                 builder.append(" WHERE ").append(where);
             }
+        }
+        if (intoTempTable != null) {
+            builder.append(" INTO TEMP ").append(intoTempTable);
+        }
+        if (useWithNoLog) {
+            builder.append(" WITH NO LOG");
         }
         return builder;
     }
@@ -416,6 +660,16 @@ public class PlainSelect extends Select {
     public String toString() {
         StringBuilder builder = new StringBuilder();
         super.appendTo(builder);
+
+        if (mySqlSelectIntoClause != null
+                && mySqlSelectIntoClause.getPosition() == MySqlSelectIntoClause.Position.TRAILING) {
+            builder.append(" ").append(mySqlSelectIntoClause);
+        }
+
+        if (settings != null && !settings.isEmpty()) {
+            builder.append(" SETTINGS ");
+            UpdateSet.appendUpdateSetsTo(builder, settings);
+        }
 
         if (optimizeFor != null) {
             builder.append(optimizeFor);
@@ -438,28 +692,20 @@ public class PlainSelect extends Select {
         return this;
     }
 
-    public void setMySqlSqlCalcFoundRows(boolean mySqlCalcFoundRows) {
-        this.mySqlSqlCalcFoundRows = mySqlCalcFoundRows;
-    }
-
-    public void setMySqlSqlCacheFlag(MySqlSqlCacheFlags sqlCacheFlag) {
-        this.mySqlCacheFlag = sqlCacheFlag;
-    }
-
     public boolean getMySqlSqlCalcFoundRows() {
         return this.mySqlSqlCalcFoundRows;
+    }
+
+    public void setMySqlSqlCalcFoundRows(boolean mySqlCalcFoundRows) {
+        this.mySqlSqlCalcFoundRows = mySqlCalcFoundRows;
     }
 
     public MySqlSqlCacheFlags getMySqlSqlCacheFlag() {
         return this.mySqlCacheFlag;
     }
 
-    public void setNoWait(boolean noWait) {
-        this.noWait = noWait;
-    }
-
-    public boolean isNoWait() {
-        return this.noWait;
+    public void setMySqlSqlCacheFlag(MySqlSqlCacheFlags sqlCacheFlag) {
+        this.mySqlCacheFlag = sqlCacheFlag;
     }
 
     public PlainSelect withDistinct(Distinct distinct) {
@@ -472,8 +718,18 @@ public class PlainSelect extends Select {
         return this;
     }
 
+    public PlainSelect withMySqlSelectIntoClause(MySqlSelectIntoClause mySqlSelectIntoClause) {
+        this.setMySqlSelectIntoClause(mySqlSelectIntoClause);
+        return this;
+    }
+
     public PlainSelect withWhere(Expression where) {
         this.setWhere(where);
+        return this;
+    }
+
+    public PlainSelect withPreWhere(Expression preWhere) {
+        this.setPreWhere(preWhere);
         return this;
     }
 
@@ -507,6 +763,11 @@ public class PlainSelect extends Select {
         return this;
     }
 
+    public PlainSelect withPreferringClause(PreferringClause preferringClause) {
+        this.setPreferringClause(preferringClause);
+        return this;
+    }
+
     public PlainSelect withOracleHint(OracleHint oracleHint) {
         this.setOracleHint(oracleHint);
         return this;
@@ -514,16 +775,6 @@ public class PlainSelect extends Select {
 
     public PlainSelect withOracleSiblings(boolean oracleSiblings) {
         this.setOracleSiblings(oracleSiblings);
-        return this;
-    }
-
-    public PlainSelect withForUpdate(boolean forUpdate) {
-        this.setForUpdate(forUpdate);
-        return this;
-    }
-
-    public PlainSelect withForUpdateTable(Table forUpdateTable) {
-        this.setForUpdateTable(forUpdateTable);
         return this;
     }
 
@@ -542,23 +793,13 @@ public class PlainSelect extends Select {
         return this;
     }
 
-    public PlainSelect withSkipLocked(boolean skipLocked) {
-        this.setSkipLocked(skipLocked);
-        return this;
-    }
-
     public PlainSelect withHaving(Expression having) {
         this.setHaving(having);
         return this;
     }
 
-    public PlainSelect withWait(Wait wait) {
-        this.setWait(wait);
-        return this;
-    }
-
-    public PlainSelect addSelectItems(Collection<? extends SelectItem> selectItems) {
-        List<SelectItem> collection =
+    public PlainSelect addSelectItems(Collection<? extends SelectItem<?>> selectItems) {
+        List<SelectItem<?>> collection =
                 Optional.ofNullable(getSelectItems()).orElseGet(ArrayList::new);
         collection.addAll(selectItems);
         return this.withSelectItems(collection);
@@ -582,6 +823,18 @@ public class PlainSelect extends Select {
         return this.withJoins(collection);
     }
 
+    public PlainSelect addSettings(UpdateSet... settings) {
+        List<UpdateSet> collection = Optional.ofNullable(getSettings()).orElseGet(ArrayList::new);
+        Collections.addAll(collection, settings);
+        return this.withSettings(collection);
+    }
+
+    public PlainSelect addSettings(Collection<? extends UpdateSet> settings) {
+        List<UpdateSet> collection = Optional.ofNullable(getSettings()).orElseGet(ArrayList::new);
+        collection.addAll(settings);
+        return this.withSettings(collection);
+    }
+
     public <E extends FromItem> E getFromItem(Class<E> type) {
         return type.cast(getFromItem());
     }
@@ -590,7 +843,15 @@ public class PlainSelect extends Select {
         return type.cast(getWhere());
     }
 
+    public <E extends Expression> E getPreWhere(Class<E> type) {
+        return type.cast(getPreWhere());
+    }
+
     public <E extends Expression> E getHaving(Class<E> type) {
         return type.cast(getHaving());
+    }
+
+    public enum BigQuerySelectQualifier {
+        AS_STRUCT, AS_VALUE
     }
 }

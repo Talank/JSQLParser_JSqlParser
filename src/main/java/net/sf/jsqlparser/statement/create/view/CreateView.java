@@ -9,11 +9,10 @@
  */
 package net.sf.jsqlparser.statement.create.view;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
+
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
+import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.StatementVisitor;
@@ -25,17 +24,19 @@ public class CreateView implements Statement {
     private Table view;
     private Select select;
     private boolean orReplace = false;
-    private List<String> columnNames = null;
+    private ExpressionList<Column> columnNames = null;
     private boolean materialized = false;
     private ForceOption force = ForceOption.NONE;
+    private boolean secure = false;
     private TemporaryOption temp = TemporaryOption.NONE;
     private AutoRefreshOption autoRefresh = AutoRefreshOption.NONE;
     private boolean withReadOnly = false;
     private boolean ifNotExists = false;
+    private List<String> viewCommentOptions = null;
 
     @Override
-    public void accept(StatementVisitor statementVisitor) {
-        statementVisitor.visit(this);
+    public <T, S> T accept(StatementVisitor<T> statementVisitor, S context) {
+        return statementVisitor.visit(this, context);
     }
 
     public Table getView() {
@@ -65,11 +66,11 @@ public class CreateView implements Statement {
         this.select = select;
     }
 
-    public List<String> getColumnNames() {
+    public ExpressionList<Column> getColumnNames() {
         return columnNames;
     }
 
-    public void setColumnNames(List<String> columnNames) {
+    public void setColumnNames(ExpressionList<Column> columnNames) {
         this.columnNames = columnNames;
     }
 
@@ -87,6 +88,14 @@ public class CreateView implements Statement {
 
     public void setForce(ForceOption force) {
         this.force = force;
+    }
+
+    public boolean isSecure() {
+        return secure;
+    }
+
+    public void setSecure(boolean secure) {
+        this.secure = secure;
     }
 
     public TemporaryOption getTemporary() {
@@ -128,6 +137,9 @@ public class CreateView implements Statement {
             sql.append("OR REPLACE ");
         }
         appendForceOptionIfApplicable(sql);
+        if (secure) {
+            sql.append("SECURE ");
+        }
 
         if (temp != TemporaryOption.NONE) {
             sql.append(temp.name()).append(" ");
@@ -145,7 +157,12 @@ public class CreateView implements Statement {
             sql.append(" AUTO REFRESH ").append(autoRefresh.name());
         }
         if (columnNames != null) {
-            sql.append(PlainSelect.getStringList(columnNames, true, true));
+            sql.append("(");
+            sql.append(columnNames);
+            sql.append(")");
+        }
+        if (viewCommentOptions != null) {
+            sql.append(PlainSelect.getStringList(viewCommentOptions, false, false));
         }
         sql.append(" AS ").append(select);
         if (isWithReadOnly()) {
@@ -182,7 +199,7 @@ public class CreateView implements Statement {
         return this;
     }
 
-    public CreateView withColumnNames(List<String> columnNames) {
+    public CreateView withColumnNames(ExpressionList<Column> columnNames) {
         this.setColumnNames(columnNames);
         return this;
     }
@@ -202,15 +219,11 @@ public class CreateView implements Statement {
         return this;
     }
 
-    public CreateView addColumnNames(String... columnNames) {
-        List<String> collection = Optional.ofNullable(getColumnNames()).orElseGet(ArrayList::new);
-        Collections.addAll(collection, columnNames);
-        return this.withColumnNames(collection);
+    public List<String> getViewCommentOptions() {
+        return viewCommentOptions;
     }
 
-    public CreateView addColumnNames(Collection<String> columnNames) {
-        List<String> collection = Optional.ofNullable(getColumnNames()).orElseGet(ArrayList::new);
-        collection.addAll(columnNames);
-        return this.withColumnNames(collection);
+    public void setViewCommentOptions(List<String> viewCommentOptions) {
+        this.viewCommentOptions = viewCommentOptions;
     }
 }

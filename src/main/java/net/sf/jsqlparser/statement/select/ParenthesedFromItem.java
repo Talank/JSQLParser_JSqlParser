@@ -10,18 +10,20 @@
 package net.sf.jsqlparser.statement.select;
 
 import net.sf.jsqlparser.expression.Alias;
+import net.sf.jsqlparser.parser.ASTNodeAccessImpl;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-public class ParenthesedFromItem implements FromItem {
+public class ParenthesedFromItem extends ASTNodeAccessImpl implements FromItem {
     private FromItem fromItem;
     private List<Join> joins;
     private Alias alias;
     private Pivot pivot;
     private UnPivot unPivot;
+    private SampleClause sampleClause;
 
     public ParenthesedFromItem() {}
 
@@ -41,6 +43,14 @@ public class ParenthesedFromItem implements FromItem {
         return joins;
     }
 
+    public void setJoins(List<Join> list) {
+        joins = list;
+    }
+
+    public Join getJoin(int index) {
+        return joins.get(index);
+    }
+
     public FromItem addJoins(Join... joins) {
         List<Join> list = Optional.ofNullable(getJoins()).orElseGet(ArrayList::new);
         Collections.addAll(list, joins);
@@ -52,13 +62,9 @@ public class ParenthesedFromItem implements FromItem {
         return this;
     }
 
-    public void setJoins(List<Join> list) {
-        joins = list;
-    }
-
     @Override
-    public void accept(FromItemVisitor fromItemVisitor) {
-        fromItemVisitor.visit(this);
+    public <T, S> T accept(FromItemVisitor<T> fromItemVisitor, S context) {
+        return fromItemVisitor.visit(this, context);
     }
 
     public StringBuilder appendTo(StringBuilder builder) {
@@ -123,6 +129,22 @@ public class ParenthesedFromItem implements FromItem {
     @Override
     public void setUnPivot(UnPivot unpivot) {
         this.unPivot = unpivot;
+    }
+
+    @Override
+    public SampleClause getSampleClause() {
+        return sampleClause;
+    }
+
+    @Override
+    public FromItem setSampleClause(SampleClause sampleClause) {
+        this.sampleClause = sampleClause;
+        return this;
+    }
+
+    public ParenthesedFromItem withSampleClause(SampleClause sampleClause) {
+        this.sampleClause = sampleClause;
+        return this;
     }
 
     public ParenthesedFromItem withFromItem(FromItem fromItem) {

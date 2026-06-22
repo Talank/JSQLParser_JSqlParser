@@ -17,20 +17,31 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 
 public class Index implements Serializable {
 
+    private final List<String> name = new ArrayList<>();
     private String type;
     private String using;
     private List<ColumnParams> columns;
-    private final List<String> name = new ArrayList<>();
     private List<String> idxSpec;
+    private String commentText;
+    private String indexKeyword;
 
     public List<String> getColumnsNames() {
         return columns.stream()
-                .map(col -> col.columnName)
+                .map(ColumnParams::getColumnName)
                 .collect(toList());
+    }
+
+    public void setColumnsNames(List<String> list) {
+        if (list == null) {
+            this.columns = Collections.emptyList();
+        } else {
+            this.columns = list.stream().map(ColumnParams::new).collect(toList());
+        }
     }
 
     @Deprecated
@@ -72,6 +83,18 @@ public class Index implements Serializable {
         return name.isEmpty() ? null : String.join(".", name);
     }
 
+    public void setName(String name) {
+        this.name.clear();
+        if (name != null) {
+            this.name.add(name);
+        }
+    }
+
+    public void setName(List<String> name) {
+        this.name.clear();
+        this.name.addAll(name);
+    }
+
     public List<String> getNameParts() {
         return Collections.unmodifiableList(name);
     }
@@ -80,20 +103,8 @@ public class Index implements Serializable {
         return type;
     }
 
-    /**
-     * In postgresql, the index type (Btree, GIST, etc.) is indicated
-     * with a USING clause.
-     * Please note that:
-     *  Oracle - the type might be BITMAP, indicating a bitmap kind of index
-     *  MySQL - the type might be FULLTEXT or SPATIAL
-     *  @param using
-     */
-    public void setUsing(String using) {
-        this.using = using;
-    }
-
-    public void setColumnsNames(List<String> list) {
-        columns = list.stream().map(ColumnParams::new).collect(toList());
+    public void setType(String string) {
+        type = string;
     }
 
     public Index withColumnsNames(List<String> list) {
@@ -101,22 +112,19 @@ public class Index implements Serializable {
         return this;
     }
 
-    public void setName(String name) {
-        this.name.clear();
-        this.name.add(name);
-    }
-
-    public void setName(List<String> name) {
-        this.name.clear();
-        this.name.addAll(name);
-    }
-
-    public void setType(String string) {
-        type = string;
-    }
-
     public String getUsing() {
         return using;
+    }
+
+    /**
+     * In postgresql, the index type (Btree, GIST, etc.) is indicated with a USING clause. Please
+     * note that: Oracle - the type might be BITMAP, indicating a bitmap kind of index MySQL - the
+     * type might be FULLTEXT or SPATIAL
+     *
+     * @param using
+     */
+    public void setUsing(String using) {
+        this.using = using;
     }
 
     public List<String> getIndexSpec() {
@@ -132,11 +140,35 @@ public class Index implements Serializable {
         return this;
     }
 
+    public void setIndexKeyword(String indexKeyword) {
+        this.indexKeyword = indexKeyword;
+    }
+
+    public String getIndexKeyword() {
+        return indexKeyword;
+    }
+
+    public Index withIndexKeyword(String indexKeyword) {
+        this.setIndexKeyword(indexKeyword);
+        return this;
+    }
+
     @Override
     public String toString() {
         String idxSpecText = PlainSelect.getStringList(idxSpec, false, false);
-        return ( type!=null ? type : "") + (!name.isEmpty() ? " " + getName() : "") + " " + PlainSelect.
-                getStringList(columns, true, true) + (!"".equals(idxSpecText) ? " " + idxSpecText : "");
+        String keyword = (indexKeyword != null) ? " " + indexKeyword : "";
+        String head =
+                (type != null ? type : "") +
+                        keyword +
+                        (!name.isEmpty() ? " " + getName() : "") +
+                        (using != null ? " USING " + using : "");
+
+        String tail = (columns != null && !columns.isEmpty()
+                ? PlainSelect.getStringList(columns, true, true)
+                : "")
+                + (!idxSpecText.isEmpty() ? " " + idxSpecText : "");
+
+        return tail.isEmpty() ? head : head + " " + tail;
     }
 
     public Index withType(String type) {
@@ -159,31 +191,63 @@ public class Index implements Serializable {
         return this;
     }
 
+    public String getCommentText() {
+        return commentText;
+    }
+
+    public void setCommentText(String commentText) {
+        this.commentText = commentText;
+    }
+
     public static class ColumnParams implements Serializable {
         public final String columnName;
         public final List<String> params;
+        private final Expression expression;
 
         public ColumnParams(String columnName) {
             this.columnName = columnName;
             this.params = null;
+            this.expression = null;
         }
 
         public ColumnParams(String columnName, List<String> params) {
             this.columnName = columnName;
             this.params = params;
+            this.expression = null;
+        }
+
+        public ColumnParams(Expression expression) {
+            this.columnName = null;
+            this.params = null;
+            this.expression = expression;
+        }
+
+        public ColumnParams(Expression expression, List<String> params) {
+            this.columnName = null;
+            this.params = params;
+            this.expression = expression;
         }
 
         public String getColumnName() {
-            return columnName;
+            return expression != null ? expression.toString() : columnName;
         }
 
         public List<String> getParams() {
             return params;
         }
 
+        public Expression getExpression() {
+            return expression;
+        }
+
+        public boolean isExpression() {
+            return expression != null;
+        }
+
         @Override
         public String toString() {
-            return columnName + (params != null ? " " + String.join(" ", params) : "");
+            String head = expression != null ? "(" + expression + ")" : columnName;
+            return head + (params != null ? " " + String.join(" ", params) : "");
         }
     }
 }

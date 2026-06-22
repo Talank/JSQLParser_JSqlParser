@@ -9,21 +9,36 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+import net.sf.jsqlparser.expression.ExpressionVisitor;
+import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
+
 @SuppressWarnings({"PMD.UncommentedEmptyMethodBody"})
-public class PivotVisitorAdapter implements PivotVisitor {
+public class PivotVisitorAdapter<T> implements PivotVisitor<T> {
+    private final ExpressionVisitor<T> expressionVisitor;
 
-    @Override
-    public void visit(Pivot pivot) {
+    public PivotVisitorAdapter() {
+        this.expressionVisitor = new ExpressionVisitorAdapter<T>();
+    }
 
+    public PivotVisitorAdapter(ExpressionVisitor<T> expressionVisitor) {
+        this.expressionVisitor = expressionVisitor;
     }
 
     @Override
-    public void visit(PivotXml pivot) {
+    public <S> T visit(Pivot pivot, S context) {
 
+        return null;
     }
 
     @Override
-    public void visit(UnPivot unpivot) {
+    public <S> T visit(PivotXml pivot, S context) {
 
+        return null;
+    }
+
+    @Override
+    public <S> T visit(UnPivot unpivot, S context) {
+
+        return null;
     }
 }

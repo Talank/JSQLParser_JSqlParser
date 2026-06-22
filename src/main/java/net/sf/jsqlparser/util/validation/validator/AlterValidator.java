@@ -9,6 +9,8 @@
  */
 package net.sf.jsqlparser.util.validation.validator;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.EnumSet;
 import net.sf.jsqlparser.parser.feature.Feature;
 import net.sf.jsqlparser.statement.alter.Alter;
@@ -41,13 +43,16 @@ public class AlterValidator extends AbstractValidator<Alter> {
             validateOptionalColumnName(c, e.getColumnName());
 
             if (e.getColumnDropNotNullList() != null) {
-                validateOptionalColumnNames(c, ValidationUtil.map(e.getColumnDropNotNullList(), ColumnDropNotNull::getColumnName));
+                validateOptionalColumnNames(c, ValidationUtil.map(e.getColumnDropNotNullList(),
+                        ColumnDropNotNull::getColumnName));
             }
 
             if (e.getColDataTypeList() != null) {
-                boolean validateForExist = !EnumSet.of(AlterOperation.ADD).contains(e.getOperation());
+                boolean validateForExist =
+                        !EnumSet.of(AlterOperation.ADD).contains(e.getOperation());
                 validateOptionalColumnNames(c,
-                        ValidationUtil.map(e.getColDataTypeList(), ColumnDataType::getColumnName), validateForExist,
+                        ValidationUtil.map(e.getColDataTypeList(), ColumnDataType::getColumnName),
+                        validateForExist,
                         NamedObject.table);
             }
 
@@ -70,12 +75,16 @@ public class AlterValidator extends AbstractValidator<Alter> {
             if (e.getIndex() != null) {
                 validateName(c, NamedObject.index, e.getIndex().getName());
                 if (e.getIndex().getColumns() != null) {
-                    validateOptionalColumnNames(c, e.getIndex().getColumnsNames(), NamedObject.index);
+                    validateOptionalColumnNames(c,
+                            e.getIndex().getColumns().stream()
+                                    .filter(cp -> !cp.isExpression())
+                                    .map(cp -> cp.getColumnName())
+                                    .collect(toList()),
+                            NamedObject.index);
                 }
             }
         }
     }
-
 
 
 }

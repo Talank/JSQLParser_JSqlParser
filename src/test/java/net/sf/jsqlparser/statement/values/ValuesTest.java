@@ -24,23 +24,36 @@ import static net.sf.jsqlparser.test.TestUtils.assertSqlCanBeParsedAndDeparsed;
 public class ValuesTest {
 
     @Test
+    public void testRowConstructor() throws JSQLParserException {
+        String sqlStr = "VALUES (1,2), (3,4)";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
+    public void testSelectRowConstructor() throws JSQLParserException {
+        String sqlStr = "select * from values 1, 2, 3;";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+
+        sqlStr = "select * from values (1, 2), (3, 4), (5,6);";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
+    }
+
+    @Test
     public void testDuplicateKey() throws JSQLParserException {
         String statement = "VALUES (1, 2, 'test')";
         assertSqlCanBeParsedAndDeparsed(statement);
 
-        Values values = new Values().addExpressions(new LongValue(1),
-                new LongValue(2), new StringValue("test"));
+        Values values = new Values()
+                .addExpressions(
+                        new LongValue(1), new LongValue(2), new StringValue("test"));
         assertDeparse(values, statement);
-
-        // this test does not make much sense, since the Object Tree is not distinct
-        // there are several different ways to build the statement above
-        // assertEqualsObjectTree(parsed, created);
     }
 
     @Test
     public void testComplexWithQueryIssue561() throws JSQLParserException {
         assertSqlCanBeParsedAndDeparsed(
-                "WITH split (word, str, hascomma) AS (VALUES ('', 'Auto,A,1234444', 1) UNION ALL SELECT substr(str, 0, CASE WHEN instr(str, ',') THEN instr(str, ',') ELSE length(str) + 1 END), ltrim(substr(str, instr(str, ',')), ','), instr(str, ',') FROM split WHERE hascomma) SELECT trim(word) FROM split WHERE word != ''");
+                "WITH split (word, str, hascomma) AS (VALUES ('', 'Auto,A,1234444', 1) UNION ALL SELECT substr(str, 0, CASE WHEN instr(str, ',') THEN instr(str, ',') ELSE length(str) + 1 END), ltrim(substr(str, instr(str, ',')), ','), instr(str, ',') FROM split WHERE hascomma) SELECT trim(word) FROM split WHERE word != ''",
+                true);
     }
 
     @Test
@@ -50,5 +63,12 @@ public class ValuesTest {
         valuesStatement.addExpressions(Arrays.asList(new StringValue("3"), new StringValue("4")));
 
         valuesStatement.accept(new StatementVisitorAdapter());
+    }
+
+    @Test
+    public void testValuesWithAliasWithoutAs() throws JSQLParserException {
+        String sqlStr = "SELECT a, b, cume_dist() OVER (PARTITION BY a ORDER BY b) AS cume_dist\n" +
+                "    FROM VALUES ('A1', 2), ('A1', 1), ('A2', 3), ('A1', 1) tab(a, b);";
+        assertSqlCanBeParsedAndDeparsed(sqlStr, true);
     }
 }

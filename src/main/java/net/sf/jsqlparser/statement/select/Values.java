@@ -9,30 +9,38 @@
  */
 package net.sf.jsqlparser.statement.select;
 
+import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
-import net.sf.jsqlparser.expression.operators.relational.ItemsList;
+import net.sf.jsqlparser.expression.operators.relational.ParenthesedExpressionList;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 
-public class Values extends Select {
+public class Values extends Select implements FromItem {
 
-    private ItemsList expressions;
+    private ExpressionList<Expression> expressions;
+    private Alias alias;
 
     public Values() {
-        // empty constructor
+        this(null, null);
     }
 
-    public Values(ItemsList expressions) {
+    public Values(ExpressionList<Expression> expressions) {
         this.expressions = expressions;
     }
 
-    public ItemsList getExpressions() {
+    public Values(ExpressionList<Expression> expressions, Alias alias) {
+        this.expressions = expressions;
+        this.alias = alias;
+    }
+
+    public ExpressionList<Expression> getExpressions() {
         return expressions;
     }
 
-    public void setExpressions(ItemsList expressions) {
+
+    public void setExpressions(ExpressionList<Expression> expressions) {
         this.expressions = expressions;
     }
 
@@ -40,34 +48,74 @@ public class Values extends Select {
     public StringBuilder appendSelectBodyTo(StringBuilder builder) {
         builder.append("VALUES ");
         builder.append(expressions.toString());
+        appendTo(builder, alias);
         return builder;
     }
 
     @Override
-    public void accept(SelectVisitor selectVisitor) {
-        selectVisitor.visit(this);
+    public <T, S> T accept(SelectVisitor<T> selectVisitor, S context) {
+        return selectVisitor.visit(this, context);
     }
 
-    public Values withExpressions(ItemsList expressions) {
+    @Override
+    public <T, S> T accept(FromItemVisitor<T> fromItemVisitor, S context) {
+        return fromItemVisitor.visit(this, context);
+    }
+
+    public Values withExpressions(ExpressionList<Expression> expressions) {
         this.setExpressions(expressions);
         return this;
     }
 
-    public Values addExpressions(Expression... addExpressions) {
-        if (expressions != null && expressions instanceof ExpressionList) {
-            ((ExpressionList) expressions).addExpressions(addExpressions);
-            return this;
-        } else {
-            return this.withExpressions(new ExpressionList(addExpressions));
-        }
+    public Values addExpressions(Expression... expressions) {
+        return this.addExpressions(Arrays.asList(expressions));
     }
 
-    public Values addExpressions(Collection<? extends Expression> addExpressions) {
-        if (expressions != null && expressions instanceof ExpressionList) {
-            ((ExpressionList) expressions).addExpressions(addExpressions);
-            return this;
-        } else {
-            return this.withExpressions(new ExpressionList(new ArrayList<>(addExpressions)));
+    public Values addExpressions(Collection<? extends Expression> expressions) {
+        if (this.expressions == null) {
+            this.expressions = new ParenthesedExpressionList<>();
         }
+        this.expressions.addAll(expressions);
+        return this;
+    }
+
+    @Override
+    public Alias getAlias() {
+        return alias;
+    }
+
+    @Override
+    public void setAlias(Alias alias) {
+        this.alias = alias;
+    }
+
+    @Override
+    public Pivot getPivot() {
+        return null;
+    }
+
+    @Override
+    public void setPivot(Pivot pivot) {
+
+    }
+
+    @Override
+    public UnPivot getUnPivot() {
+        return null;
+    }
+
+    @Override
+    public void setUnPivot(UnPivot unpivot) {
+
+    }
+
+    @Override
+    public SampleClause getSampleClause() {
+        return null;
+    }
+
+    @Override
+    public FromItem setSampleClause(SampleClause sampleClause) {
+        return null;
     }
 }

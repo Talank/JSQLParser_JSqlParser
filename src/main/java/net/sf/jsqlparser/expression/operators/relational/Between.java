@@ -22,47 +22,70 @@ public class Between extends ASTNodeAccessImpl implements Expression {
     private boolean not = false;
     private Expression betweenExpressionStart;
     private Expression betweenExpressionEnd;
+    private boolean usingSymmetric = false;
+    private boolean usingAsymmetric = false;
 
     public Expression getBetweenExpressionEnd() {
         return betweenExpressionEnd;
-    }
-
-    public Expression getBetweenExpressionStart() {
-        return betweenExpressionStart;
-    }
-
-    public Expression getLeftExpression() {
-        return leftExpression;
-    }
-
-    public boolean isNot() {
-        return not;
     }
 
     public void setBetweenExpressionEnd(Expression expression) {
         betweenExpressionEnd = expression;
     }
 
+    public Expression getBetweenExpressionStart() {
+        return betweenExpressionStart;
+    }
+
     public void setBetweenExpressionStart(Expression expression) {
         betweenExpressionStart = expression;
+    }
+
+    public Expression getLeftExpression() {
+        return leftExpression;
     }
 
     public void setLeftExpression(Expression expression) {
         leftExpression = expression;
     }
 
+    public boolean isNot() {
+        return not;
+    }
+
     public void setNot(boolean b) {
         not = b;
     }
 
+    public boolean isUsingSymmetric() {
+        return usingSymmetric;
+    }
+
+    public Between setUsingSymmetric(boolean usingSymmetric) {
+        this.usingSymmetric = usingSymmetric;
+        return this;
+    }
+
+    public boolean isUsingAsymmetric() {
+        return usingAsymmetric;
+    }
+
+    public Between setUsingAsymmetric(boolean usingAsymmetric) {
+        this.usingAsymmetric = usingAsymmetric;
+        return this;
+    }
+
     @Override
-    public void accept(ExpressionVisitor expressionVisitor) {
-        expressionVisitor.visit(this);
+    public <T, S> T accept(ExpressionVisitor<T> expressionVisitor, S context) {
+        return expressionVisitor.visit(this, context);
     }
 
     @Override
     public String toString() {
-        return leftExpression + " " + (not ? "NOT " : "") + "BETWEEN " + betweenExpressionStart + " AND "
+        return leftExpression + " " + (not ? "NOT " : "") + "BETWEEN "
+                + (usingSymmetric ? "SYMMETRIC " : "") + (usingAsymmetric ? "ASYMMETRIC " : "")
+                + betweenExpressionStart
+                + " AND "
                 + betweenExpressionEnd;
     }
 
